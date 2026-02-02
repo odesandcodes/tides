@@ -63,7 +63,7 @@ const STATION_DB = [
 
 const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-// --- 2. GPS MATH (The "Smart" Part) ---
+// --- 2. GPS MATH ---
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -77,7 +77,6 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
 export async function GET({ request }) {
   const url = new URL(request.url);
   
-  // Grab params from URL (sent by Siri or Browser)
   const latParam = url.searchParams.get("lat");
   const lonParam = url.searchParams.get("lon");
   const query = url.searchParams.get("q")?.toLowerCase();
@@ -86,8 +85,11 @@ export async function GET({ request }) {
   const lon = lonParam ? parseFloat(lonParam) : NaN;
 
   let targets = [];
+  let introText = "";
 
-  // STRATEGY 1: GPS Coordinates (Highest Priority)
+  // LOGIC: Build a list that starts with Nearest (if applicable) -> then Defaults
+  
+  // 1. If GPS provided, find nearest and put it first
   if (!isNaN(lat) && !isNaN(lon)) {
       let closest = null;
       let minDist = Infinity;
@@ -95,22 +97,30 @@ export async function GET({ request }) {
           const dist = getDistance(lat, lon, st.lat, st.lon);
           if (dist < minDist) { minDist = dist; closest = st; }
       });
-      // 150km radius (approx 90 miles) - if you are further than that, it's risky to guess
+      
       if (closest && minDist < 150) {
-          targets = [closest];
+          targets.push(closest);
+          introText = "Nearest location tide data. ";
       } else {
           return new Response("You are too far from the coast. No nearby station found.", { status: 200 });
       }
   } 
-  // STRATEGY 2: Text Search
+  // 2. If Search query provided
   else if (query) {
-      targets = STATION_DB.filter(s => s.name.toLowerCase().includes(query));
-      if (targets.length === 0) return new Response(`No matching station found for "${query}".`, { status: 200 });
-  } 
-  // STRATEGY 3: Defaults (Fallback)
-  else {
-      targets = STATION_DB.filter(s => DEFAULT_IDS.includes(s.id));
+      const found = STATION_DB.filter(s => s.name.toLowerCase().includes(query));
+      if (found.length > 0) targets = found;
+      else return new Response(`No matching station found for "${query}".`, { status: 200 });
   }
+
+  // 3. ALWAYS Append Defaults (Deduplicated)
+  // This ensures the "Standard Cards" are always read after the specific request
+  DEFAULT_IDS.forEach(id => {
+      // Don't add if it's already in the list (e.g. if Nearest was Myrtle, don't add Myrtle again)
+      if (!targets.find(t => t.id === id)) {
+          const s = STATION_DB.find(db => db.id === id);
+          if (s) targets.push(s);
+      }
+  });
 
   // --- 4. NOAA FETCH LOGIC ---
   const getWallClockInt = (zone: string) => {
@@ -180,6 +190,9 @@ export async function GET({ request }) {
       })
     );
 
-    return new Response(reports.join("\n\n"), { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-cache" } });
+    // PREPEND THE INTRO TEXT (Only if GPS was used)
+    const finalText = introText + reports.join("\n\n");
+
+    return new Response(finalText, { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-cache" } });
   } catch (e) { return new Response("Tide data unavailable.", { status: 500 }); }
 }
