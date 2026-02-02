@@ -87,9 +87,7 @@ export async function GET({ request }) {
   let targets = [];
   let introText = "";
 
-  // LOGIC: Build a list that starts with Nearest (if applicable) -> then Defaults
-  
-  // 1. If GPS provided, find nearest and put it first
+  // 1. GPS LOGIC
   if (!isNaN(lat) && !isNaN(lon)) {
       let closest = null;
       let minDist = Infinity;
@@ -105,44 +103,40 @@ export async function GET({ request }) {
           return new Response("You are too far from the coast. No nearby station found.", { status: 200 });
       }
   } 
-  // 2. If Search query provided
+  // 2. TEXT SEARCH LOGIC
   else if (query) {
       const found = STATION_DB.filter(s => s.name.toLowerCase().includes(query));
       if (found.length > 0) targets = found;
       else return new Response(`No matching station found for "${query}".`, { status: 200 });
   }
 
-  // 3. ALWAYS Append Defaults (Deduplicated)
-  // This ensures the "Standard Cards" are always read after the specific request
+  // 3. ADD DEFAULTS (Deduplicated)
   DEFAULT_IDS.forEach(id => {
-      // Don't add if it's already in the list (e.g. if Nearest was Myrtle, don't add Myrtle again)
       if (!targets.find(t => t.id === id)) {
           const s = STATION_DB.find(db => db.id === id);
           if (s) targets.push(s);
       }
   });
 
-  // --- 4. NOAA FETCH LOGIC ---
-  // OLD BROKEN FUNCTION:
-// const getWallClockInt = (zone: string) => { ... }
-
-// NEW FIXED FUNCTION:
-const getWallClockInt = (zone: string) => {
+  // --- 4. BULLETPROOF TIME HELPER (For Cloudflare Environment) ---
+  const getStationTime = (zone: string) => {
     const now = new Date();
-    // Convert the UTC server time to the station's local time string
-    const localString = now.toLocaleString("en-US", { timeZone: zone, hour12: false });
-    // Parse that string back into a Date object to get the parts
-    const d = new Date(localString);
+    // Force UTC server time to convert to specific Zone String
+    const options: Intl.DateTimeFormatOptions = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
     
-    // Format as YYYYMMDDHHMM
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || "0";
+    
+    // Reassemble into integer: 202405021430
     return parseInt(
-        `${d.getFullYear()}` +
-        `${String(d.getMonth() + 1).padStart(2, '0')}` +
-        `${String(d.getDate()).padStart(2, '0')}` +
-        `${String(d.getHours()).padStart(2, '0')}` +
-        `${String(d.getMinutes()).padStart(2, '0')}`
+        `${getPart('year')}` +
+        `${getPart('month').padStart(2, '0')}` +
+        `${getPart('day').padStart(2, '0')}` +
+        `${getPart('hour').padStart(2, '0')}` +
+        `${getPart('minute').padStart(2, '0')}`
     );
-};
+  };
 
   const noaaToInt = (t: string) => parseInt(t.replace(/[- :]/g, ''));
   const getWideNetDate = () => {
@@ -166,13 +160,14 @@ const getWallClockInt = (zone: string) => {
         let trend = "steady";
         let nextEventText = "No upcoming tides";
         
-        const nowInt = getWallClockInt(site.timeZone);
+        // USE THE NEW TIME HELPER
+        const stationTimeInt = getStationTime(site.zone);
         let anchorInt = 0; 
 
         if (curJson.predictions && curJson.predictions.length > 0) {
             const closest = curJson.predictions.reduce((prev: any, curr: any) => {
                 const pInt = noaaToInt(prev.t); const cInt = noaaToInt(curr.t);
-                return (Math.abs(nowInt - cInt) < Math.abs(nowInt - pInt) ? curr : prev);
+                return (Math.abs(stationTimeInt - cInt) < Math.abs(stationTimeInt - pInt) ? curr : prev);
             });
             currentLevel = parseFloat(closest.v).toFixed(1);
             anchorInt = noaaToInt(closest.t);
@@ -202,7 +197,6 @@ const getWallClockInt = (zone: string) => {
       })
     );
 
-    // PREPEND THE INTRO TEXT (Only if GPS was used)
     const finalText = introText + reports.join("\n\n");
 
     return new Response(finalText, { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-cache" } });
