@@ -26,12 +26,12 @@ export const prerender = true;
             border: 1px solid #ddd; font-size: 13px; margin-top: 5px;
         }
 
-        /* ONE BUTTON TO RULE THEM ALL */
+        /* BUTTON */
         .action-btn {
             background: white; border: 1px solid #ddd; border-radius: 12px;
             padding: 12px 24px; font-weight: 600; color: #333;
             display: flex; align-items: center; gap: 8px; font-size: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 5px;
         }
         .action-btn:active { background: #f0f0f0; transform: scale(0.98); }
 
@@ -51,7 +51,7 @@ export const prerender = true;
     <button class="action-btn" onclick="useMyLocation()">
         📍 Find Nearest Station
     </button>
-    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #666; margin-bottom: 15px; height: 15px;"></div>
+    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; height: 18px;"></div>
 
     <div id="app" style="width: 100%; max-width: 450px;">
         <div style="text-align: center; color: #888; padding: 20px;">Loading Data...</div>
@@ -60,7 +60,7 @@ export const prerender = true;
     <div class="disclaimer-box">
         Updates every ~6 minutes.<br>
         <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
-        Build v3.2 (Always Show Nearest)
+        Build v3.3 (High Visibility Mode)
     </div>
 
     <script>
@@ -75,10 +75,9 @@ export const prerender = true;
             { id: "9447130", name: "Seattle", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
         ];
 
-        // 2. THE DEFAULTS
         const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-        // --- MATH: Distance Calculation ---
+        // --- GPS LOGIC ---
         function getDistance(lat1, lon1, lat2, lon2) {
             const R = 6371; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -88,12 +87,11 @@ export const prerender = true;
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // --- ACTION: Button Click ---
         function useMyLocation() {
             const status = document.getElementById('statusMsg');
-            if (!navigator.geolocation) { status.innerText = "GPS not supported"; return; }
+            if (!navigator.geolocation) { status.innerText = "Error: GPS not supported by browser."; return; }
             
-            status.innerText = "Locating...";
+            status.innerText = "📡 Acquiring GPS...";
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const { latitude, longitude } = pos.coords;
@@ -106,17 +104,21 @@ export const prerender = true;
                     });
 
                     if (closest) {
-                        status.innerText = `Found: ${closest.name} (${Math.round(minDist)}km away)`;
+                        status.innerText = `✅ Found ${closest.name} (${Math.round(minDist)}km away)`;
                         renderApp(closest); 
+                    } else {
+                        status.innerText = "❌ No stations found in database.";
                     }
                 },
-                () => { status.innerText = "Location access denied."; }
+                (err) => { 
+                    status.innerText = "🚫 Location Denied. Check Settings."; 
+                    console.error(err);
+                }
             );
         }
 
-        // --- CORE LOGIC ---
+        // --- FETCH LOGIC ---
         function noaaToInt(t) { return parseInt(t.replace(/[- :]/g, '')); }
-        
         function getStationWallClockInt(zone) {
             const d = new Date();
             const options = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
@@ -125,7 +127,6 @@ export const prerender = true;
             const getPart = (type) => parts.find(p => p.type === type)?.value || "0";
             return parseInt(`${getPart('year')}${getPart('month').padStart(2,'0')}${getPart('day').padStart(2,'0')}${getPart('hour').padStart(2,'0')}${getPart('minute').padStart(2,'0')}`);
         }
-
         function getWideNetDate() {
             const d = new Date(); d.setDate(d.getDate() - 1); 
             return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
@@ -133,7 +134,8 @@ export const prerender = true;
 
         async function fetchStationData(station) {
             try {
-                const cb = Date.now();
+                // Unique cache buster per request to prevent browser merging duplicates
+                const cb = Date.now() + Math.random(); 
                 const beginDate = getWideNetDate();
                 const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
                 
@@ -174,67 +176,87 @@ export const prerender = true;
             } catch (err) { return { ...station, error: true }; }
         }
 
-        // --- RENDER (UPDATED: Duplicates Allowed) ---
+        // --- RENDERER ---
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
-            if (!container.innerHTML.includes('Loading')) container.innerHTML = '<div style="text-align:center;color:#888;">Updating...</div>';
+            // Only show "Loading" if we are doing a fresh load or a search
+            if (foundStation || container.innerHTML.includes('Loading')) {
+                container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Fetching Data...</div>';
+            }
 
-            // 1. If Found Station exists, put it FIRST
+            // Build List: Found Station + Defaults
             let list = [];
             if (foundStation) {
+                // Mark this specific object as "isFound"
                 list.push({ ...foundStation, isFound: true });
             }
-            
-            // 2. Always add Defaults (Even if it's the same station)
-            // This ensures your "Favorites" list below never changes.
             DEFAULT_IDS.forEach(id => {
                 const s = STATION_DB.find(db => db.id === id);
                 if (s) list.push(s);
             });
 
+            // Fetch
             const results = await Promise.all(list.map(fetchStationData));
-            container.innerHTML = '';
-
+            
+            // Generate HTML
+            let finalHTML = '';
             results.forEach(st => {
                 if (st.error) return;
-                
+
+                // --- STYLING LOGIC ---
+                let cardStyle = "background: white; border: none;";
+                let titleColor = "#111";
+                let labelText = `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
+                let labelColor = "#999";
+                let badge = "";
+
+                // If this is the "Found" station, give it the Special Treatment
+                if (st.isFound) {
+                    cardStyle = "background: #f0f7ff; border: 2px solid #007AFF;";
+                    titleColor = "#0056b3"; // Dark Blue Title
+                    labelText = "📍 NEAREST STATION (GPS)";
+                    labelColor = "#007AFF";
+                }
+
                 let rows = st.timeline.map(e => {
                     const [_, t] = e.time.split(' ');
                     let [h, m] = t.split(':');
                     let suffix = h >= 12 ? 'PM' : 'AM';
                     h = h % 12 || 12;
-                    
                     return `
-                    <tr style="border-bottom:1px solid #f4f4f4;">
+                    <tr style="border-bottom:1px solid #e5e7eb;">
                         <td style="padding:10px 0;"><span style="background:${e.isHigh?'#e6f3ff':'#f2f2f2'};color:${e.isHigh?'#0066cc':'#555'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;">${e.isHigh?'HIGH':'LOW'}</span></td>
                         <td style="text-align:right;font-weight:800;font-size:16px;">${parseFloat(e.val).toFixed(1)} ft <div style="font-size:12px;color:#888;">${h}:${m} ${suffix}</div></td>
                     </tr>`;
                 }).join('');
 
                 const isRising = st.trend === "RISING";
-                // Style the "Found" card differently (Blue border + Blue Title)
-                const border = st.isFound ? "border: 2px solid #007AFF; background: #f0f9ff;" : "background: white;";
-                const label = st.isFound ? "📍 NEAREST STATION" : `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
+                const arrow = isRising ? "↑" : "↓";
+                const trendColor = isRising ? "#10b981" : "#ef4444"; 
+                const trendBg = isRising ? "#ecfdf5" : "#fef2f2"; 
 
-                container.innerHTML += `
-                    <div style="${border} border-radius:16px; padding:20px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+                finalHTML += `
+                    <div style="${cardStyle} border-radius:16px; padding:20px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.06);">
                         <div style="display:flex; justify-content:space-between; border-bottom:2px solid #e0e0e0; padding-bottom:15px; margin-bottom:10px;">
                             <div>
-                                <div style="font-size:18px; font-weight:800;">${st.name}</div>
-                                <div style="font-size:10px; font-weight:700; color:#999;">${label}</div>
+                                <div style="font-size:18px; font-weight:800; color:${titleColor};">${st.name}</div>
+                                <div style="font-size:10px; font-weight:800; color:${labelColor}; margin-top:4px;">${labelText}</div>
                             </div>
                             <div style="text-align:right;">
                                 <div style="font-size:32px; font-weight:900; color:#007AFF;">${st.current}<span style="font-size:14px;color:#999;">ft</span></div>
-                                <div style="background:${isRising?'#ecfdf5':'#fef2f2'}; color:${isRising?'#10b981':'#ef4444'}; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block;">${isRising?'↑':'↓'} ${st.trend}</div>
+                                <div style="background:${trendBg}; color:${trendColor}; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block;">${arrow} ${st.trend}</div>
                             </div>
                         </div>
                         <table style="width:100%; border-collapse:collapse;">${rows}</table>
                     </div>`;
             });
+
+            container.innerHTML = finalHTML;
         }
 
         setInterval(() => {
-            document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+            const c = document.getElementById('clock');
+            if(c) c.innerText = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
         }, 1000);
 
         renderApp();
