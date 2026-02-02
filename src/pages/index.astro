@@ -8,67 +8,42 @@ export const prerender = true;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TideTrack Debug</title>
     <style>
-        /* BASE STYLES */
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background: #f0f2f5; margin: 0; padding: 20px; 
-            display: flex; flex-direction: column; align-items: center; 
-        }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         button { cursor: pointer; }
-
-        /* HEADER */
-        .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 450px; }
-        .title { font-size: 26px; margin: 0 0 5px 0; font-weight: 900; letter-spacing: -0.5px; }
-        .highlight { color: #007AFF; }
-        .clock-badge {
-            background: white; padding: 4px 12px; border-radius: 20px; 
-            font-weight: 700; color: #555; display: inline-block; 
-            border: 1px solid #ddd; font-size: 13px; margin-top: 5px;
-        }
-
-        /* BUTTONS */
-        .controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
-        .action-btn {
-            background: white; border: 1px solid #ddd; border-radius: 12px;
-            padding: 10px 16px; font-weight: 600; color: #333;
-            display: flex; align-items: center; gap: 6px; font-size: 13px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .action-btn:active { background: #f0f0f0; transform: scale(0.98); }
-        .test-btn { border-color: #fca5a5; color: #b91c1c; }
-
-        .disclaimer-box {
-            font-size: 10px; color: #999; margin-top: 25px; 
-            line-height: 1.6; max-width: 320px; text-align: center;
-        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .action-btn { background: white; border: 1px solid #ddd; padding: 12px 20px; border-radius: 12px; margin: 5px; font-weight: bold; }
+        .error-box { background: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: none; width: 100%; max-width: 400px; font-size: 12px; font-family: monospace; word-break: break-all; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1 class="title">Tide<span class="highlight">Track</span></h1>
-        <div id="clock" class="clock-badge">--:--</div>
+        <h1>TideTrack 🛠</h1>
     </div>
 
-    <div class="controls">
-        <button class="action-btn" onclick="useMyLocation()">📍 Use GPS</button>
-        <button class="action-btn test-btn" onclick="simulateSF()">🛠 Test: Fake SF</button>
+    <div id="globalError" class="error-box"></div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button class="action-btn" onclick="window.useMyLocation()">📍 Use GPS</button>
+        <button class="action-btn" onclick="window.simulateSF()">🌉 Test SF</button>
     </div>
-    
-    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; height: 18px; font-weight: bold;"></div>
+
+    <div id="statusMsg" style="text-align: center; color: #666; margin-bottom: 20px; height: 20px;"></div>
 
     <div id="app" style="width: 100%; max-width: 450px;">
-        <div style="text-align: center; color: #888; padding: 20px;">Initializing...</div>
+        <div style="text-align: center; color: #888;">Initializing...</div>
     </div>
 
-    <div class="disclaimer-box">
-        Updates every ~6 minutes.<br>
-        <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
-        Build v4.0 (Debug Mode)
-    </div>
+    <script is:inline>
+        // --- 1. GLOBAL ERROR TRAP ---
+        window.onerror = function(msg, url, line) {
+            const box = document.getElementById('globalError');
+            box.style.display = 'block';
+            box.innerText = `CRASH: ${msg} (Line ${line})`;
+            return false;
+        };
 
-    <script>
-        // 1. DATABASE
+        // --- 2. DATABASE ---
         const STATION_DB = [
             { id: "8661070", name: "Myrtle Beach", lat: 33.6552, lon: -78.9047, zone: "America/New_York" },
             { id: "8517201", name: "Jamaica Bay", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
@@ -78,52 +53,38 @@ export const prerender = true;
             { id: "8729108", name: "Panama City", lat: 30.151, lon: -85.666, zone: "America/Chicago" },
             { id: "9447130", name: "Seattle", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
         ];
-
         const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-        // --- UI HELPERS ---
-        function setStatus(msg, color="#555") {
-            const el = document.getElementById('statusMsg');
-            el.innerText = msg;
-            el.style.color = color;
-        }
+        // --- 3. EXPOSE FUNCTIONS TO WINDOW (Fixes dead buttons) ---
+        window.setStatus = function(msg) {
+            document.getElementById('statusMsg').innerText = msg;
+        };
 
-        // --- 1. SIMULATION (TEST BUTTON) ---
-        function simulateSF() {
-            setStatus("🛠 Simulating San Francisco Location...", "#b91c1c");
-            // Fake coordinates for SF
-            handleLocation(37.806, -122.465);
-        }
+        window.simulateSF = function() {
+            window.setStatus("🛠 Simulating San Francisco...");
+            window.handleLocation(37.806, -122.465);
+        };
 
-        // --- 2. GPS LOGIC ---
-        function useMyLocation() {
+        window.useMyLocation = function() {
             if (!navigator.geolocation) { 
-                setStatus("🚫 GPS not supported by this browser.", "red"); 
+                window.setStatus("GPS Not Supported"); 
                 return; 
             }
-            
-            setStatus("📡 Asking for permission... Check popup.", "#007AFF");
-            
+            window.setStatus("📡 Requesting GPS...");
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    setStatus("✅ GPS Acquired. Calculating...", "green");
-                    handleLocation(pos.coords.latitude, pos.coords.longitude);
+                    window.setStatus("✅ GPS Found!");
+                    window.handleLocation(pos.coords.latitude, pos.coords.longitude);
                 },
                 (err) => { 
-                    console.error(err);
-                    if(err.code === 1) setStatus("🚫 Permission Denied. Reset site permissions.", "red");
-                    else setStatus("🚫 GPS Error: " + err.message, "red");
-                },
-                { timeout: 10000, maximumAge: 60000 }
+                    window.setStatus(`🚫 Error: ${err.message}`); 
+                }
             );
-        }
+        };
 
-        // --- 3. MATH & FINDER ---
-        function handleLocation(lat, lon) {
+        window.handleLocation = function(lat, lon) {
             let closest = null;
             let minDist = Infinity;
-            
-            // Haversine Formula
             STATION_DB.forEach(st => {
                 const R = 6371; 
                 const dLat = (st.lat - lat) * Math.PI / 180;
@@ -132,62 +93,55 @@ export const prerender = true;
                           Math.cos(lat * Math.PI / 180) * Math.cos(st.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
                 const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
                 const dist = R * c;
-                
                 if (dist < minDist) { minDist = dist; closest = st; }
             });
 
             if (closest) {
-                setStatus(`📍 Nearest: ${closest.name} (${Math.round(minDist)}km)`, "#007AFF");
-                renderApp(closest); 
+                window.setStatus(`Nearest: ${closest.name}`);
+                renderApp(closest);
             } else {
-                setStatus("❌ No stations found within range.", "red");
+                window.setStatus("No station found.");
             }
-        }
+        };
 
         // --- 4. FETCH LOGIC ---
-        function getWideNetDate() {
-            const d = new Date(); d.setDate(d.getDate() - 1); 
-            return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-        }
-        
-        function noaaToInt(t) { return parseInt(t.replace(/[- :]/g, '')); }
-        
-        function getStationWallClockInt(zone) {
-            const d = new Date();
-            const options = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-            const formatter = new Intl.DateTimeFormat('en-US', options);
-            const parts = formatter.formatToParts(d);
-            const getPart = (type) => parts.find(p => p.type === type)?.value || "0";
-            return parseInt(`${getPart('year')}${getPart('month').padStart(2,'0')}${getPart('day').padStart(2,'0')}${getPart('hour').padStart(2,'0')}${getPart('minute').padStart(2,'0')}`);
-        }
-
         async function fetchStationData(station) {
             try {
-                const cb = Date.now() + Math.random(); 
-                const beginDate = getWideNetDate();
+                const cb = Date.now() + Math.random();
+                // Simpler Date Logic to avoid crashes
+                const d = new Date(); d.setDate(d.getDate() - 1);
+                const beginDate = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+                
                 const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
                 
                 const [schedRes, curRes] = await Promise.all([fetch(urlBase + "&interval=hilo"), fetch(urlBase)]);
                 const schedData = await schedRes.json();
                 const curData = await curRes.json();
 
-                if (curData.error) throw new Error(curData.error.message);
-
                 let currentLevel = "---";
-                let trend = "STABLE";
-                let stationTimeInt = getStationWallClockInt(station.zone);
+                let trend = "---";
+                
+                // Helper to parse NOAA time string "YYYY-MM-DD HH:MM" to Int
+                const noaaToInt = (t) => parseInt(t.replace(/[- :]/g, ''));
+                
+                // Get Station Wall Clock Time
+                const now = new Date();
+                const timeString = now.toLocaleString("en-US", {timeZone: station.zone, hour12: false}); 
+                // Simple parsing of locale string to Int (Robust method)
+                const tempDate = new Date(timeString);
+                const stationTimeInt = parseInt(`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(tempDate.getHours()).padStart(2,'0')}${String(tempDate.getMinutes()).padStart(2,'0')}`);
 
                 if (curData.predictions) {
                     const closest = curData.predictions.reduce((prev, curr) => {
-                        const pInt = noaaToInt(prev.t); const cInt = noaaToInt(curr.t);
-                        return (Math.abs(stationTimeInt - cInt) < Math.abs(stationTimeInt - pInt)) ? curr : prev;
+                        return (Math.abs(stationTimeInt - noaaToInt(curr.t)) < Math.abs(stationTimeInt - noaaToInt(prev.t))) ? curr : prev;
                     });
                     currentLevel = parseFloat(closest.v).toFixed(1);
+                    
+                    // Trend
                     const idx = curData.predictions.indexOf(closest);
                     if (idx < curData.predictions.length - 1) {
-                        const nextVal = parseFloat(curData.predictions[idx+1].v);
-                        if (nextVal > parseFloat(currentLevel)) trend = "RISING";
-                        if (nextVal < parseFloat(currentLevel)) trend = "FALLING";
+                         const nextVal = parseFloat(curData.predictions[idx+1].v);
+                         trend = nextVal > parseFloat(currentLevel) ? "RISING" : "FALLING";
                     }
                 }
 
@@ -199,96 +153,64 @@ export const prerender = true;
                         .map(p => ({ time: p.t, val: p.v, isHigh: p.type === 'H' }));
                 }
 
-                return { ...station, current: currentLevel, trend: trend, timeline: timeline };
-            } catch (err) { 
+                return { ...station, current: currentLevel, trend, timeline };
+            } catch (err) {
                 console.error(err);
-                return { ...station, error: true, errorMsg: err.message }; 
+                return { ...station, error: true, msg: err.message };
             }
         }
 
-        // --- 5. RENDERER ---
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
-            // Show loading only if foundStation is passed (interaction) or initial load
-            if (foundStation || container.innerHTML.includes('Initializing')) {
-                container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Fetching Latest Data...</div>';
+            if (foundStation || container.innerText.includes('Initializing')) {
+                container.innerHTML = '<div style="padding:20px;">Loading Tides...</div>';
             }
 
             let list = [];
             if (foundStation) list.push({ ...foundStation, isFound: true });
             DEFAULT_IDS.forEach(id => {
-                const s = STATION_DB.find(db => db.id === id);
+                const s = STATION_DB.find(x => x.id === id);
                 if (s) list.push(s);
             });
 
             const results = await Promise.all(list.map(fetchStationData));
             
-            let finalHTML = '';
+            let html = '';
             results.forEach(st => {
-                // ERROR CARD RENDERER
                 if (st.error) {
-                    finalHTML += `
-                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:16px; padding:20px; margin-bottom:20px;">
-                        <div style="color:#b91c1c; font-weight:bold;">⚠️ Error loading ${st.name}</div>
-                        <div style="font-size:12px; color:#b91c1c; margin-top:5px;">NOAA Data unavailable.</div>
-                    </div>`;
+                    html += `<div style="color:red; background:#fee; padding:15px; margin-bottom:10px; border-radius:10px;">⚠️ Error: ${st.name}</div>`;
                     return;
                 }
-
-                // NORMAL CARD RENDERER
-                let cardStyle = "background: white; border: none;";
-                let titleColor = "#111";
-                let labelText = `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
-                let labelColor = "#999";
-
-                if (st.isFound) {
-                    cardStyle = "background: #f0f7ff; border: 2px solid #007AFF;";
-                    titleColor = "#0056b3";
-                    labelText = "📍 NEAREST STATION (GPS)";
-                    labelColor = "#007AFF";
-                }
-
+                
                 let rows = st.timeline.map(e => {
-                    const [_, t] = e.time.split(' ');
-                    let [h, m] = t.split(':');
-                    let suffix = h >= 12 ? 'PM' : 'AM';
+                    const tParts = e.time.split(' ')[1].split(':');
+                    let h = parseInt(tParts[0]);
+                    const suffix = h >= 12 ? 'PM' : 'AM';
                     h = h % 12 || 12;
                     return `
-                    <tr style="border-bottom:1px solid #e5e7eb;">
-                        <td style="padding:10px 0;"><span style="background:${e.isHigh?'#e6f3ff':'#f2f2f2'};color:${e.isHigh?'#0066cc':'#555'};padding:4px 8px;border-radius:6px;font-size:11px;font-weight:800;">${e.isHigh?'HIGH':'LOW'}</span></td>
-                        <td style="text-align:right;font-weight:800;font-size:16px;">${parseFloat(e.val).toFixed(1)} ft <div style="font-size:12px;color:#888;">${h}:${m} ${suffix}</div></td>
-                    </tr>`;
+                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
+                        <span style="font-weight:bold; color:${e.isHigh?'#007AFF':'#555'}">${e.isHigh?'HIGH':'LOW'}</span>
+                        <span>${parseFloat(e.val).toFixed(1)} ft <span style="color:#888; font-size:0.8em;">${h}:${tParts[1]} ${suffix}</span></span>
+                    </div>`;
                 }).join('');
 
-                const isRising = st.trend === "RISING";
-                const arrow = isRising ? "↑" : "↓";
-                const trendColor = isRising ? "#10b981" : "#ef4444"; 
-                const trendBg = isRising ? "#ecfdf5" : "#fef2f2"; 
-
-                finalHTML += `
-                    <div style="${cardStyle} border-radius:16px; padding:20px; margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-                        <div style="display:flex; justify-content:space-between; border-bottom:2px solid #e0e0e0; padding-bottom:15px; margin-bottom:10px;">
-                            <div>
-                                <div style="font-size:18px; font-weight:800; color:${titleColor};">${st.name}</div>
-                                <div style="font-size:10px; font-weight:800; color:${labelColor}; margin-top:4px;">${labelText}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div style="font-size:32px; font-weight:900; color:#007AFF;">${st.current}<span style="font-size:14px;color:#999;">ft</span></div>
-                                <div style="background:${trendBg}; color:${trendColor}; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; display:inline-block;">${arrow} ${st.trend}</div>
-                            </div>
-                        </div>
-                        <table style="width:100%; border-collapse:collapse;">${rows}</table>
-                    </div>`;
+                const style = st.isFound ? "border: 2px solid #007AFF; background:#f0f9ff;" : "background:white;";
+                
+                html += `
+                <div style="${style} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                    <div style="font-size:18px; font-weight:800; margin-bottom:5px;">${st.name}</div>
+                    <div style="font-size:32px; font-weight:900; color:#007AFF;">
+                        ${st.current}<span style="font-size:16px; color:#999;">ft</span> 
+                        <span style="font-size:14px; color:${st.trend==='RISING'?'green':'red'}; background:#eee; padding:2px 6px; border-radius:4px;">${st.trend}</span>
+                    </div>
+                    <div style="margin-top:15px;">${rows}</div>
+                </div>`;
             });
-
-            container.innerHTML = finalHTML;
+            container.innerHTML = html;
         }
 
-        setInterval(() => {
-            const c = document.getElementById('clock');
-            if(c) c.innerText = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
-        }, 1000);
-
+        // --- 5. STARTUP ---
+        alert("System Ready: Click OK to start."); // PROOF OF LIFE
         renderApp();
     </script>
 </body>
