@@ -6,7 +6,7 @@ export const prerender = true;
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TideTrack</title>
+    <title>TideTrack Debug</title>
     <style>
         /* BASE STYLES */
         body { 
@@ -15,7 +15,7 @@ export const prerender = true;
             display: flex; flex-direction: column; align-items: center; 
         }
         button { cursor: pointer; }
-        
+
         /* HEADER */
         .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 450px; }
         .title { font-size: 26px; margin: 0 0 5px 0; font-weight: 900; letter-spacing: -0.5px; }
@@ -26,14 +26,16 @@ export const prerender = true;
             border: 1px solid #ddd; font-size: 13px; margin-top: 5px;
         }
 
-        /* BUTTON */
+        /* BUTTONS */
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; justify-content: center; }
         .action-btn {
             background: white; border: 1px solid #ddd; border-radius: 12px;
-            padding: 12px 24px; font-weight: 600; color: #333;
-            display: flex; align-items: center; gap: 8px; font-size: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 5px;
+            padding: 10px 16px; font-weight: 600; color: #333;
+            display: flex; align-items: center; gap: 6px; font-size: 13px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .action-btn:active { background: #f0f0f0; transform: scale(0.98); }
+        .test-btn { border-color: #fca5a5; color: #b91c1c; }
 
         .disclaimer-box {
             font-size: 10px; color: #999; margin-top: 25px; 
@@ -48,23 +50,25 @@ export const prerender = true;
         <div id="clock" class="clock-badge">--:--</div>
     </div>
 
-    <button class="action-btn" onclick="useMyLocation()">
-        📍 Find Nearest Station
-    </button>
-    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; height: 18px;"></div>
+    <div class="controls">
+        <button class="action-btn" onclick="useMyLocation()">📍 Use GPS</button>
+        <button class="action-btn test-btn" onclick="simulateSF()">🛠 Test: Fake SF</button>
+    </div>
+    
+    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; height: 18px; font-weight: bold;"></div>
 
     <div id="app" style="width: 100%; max-width: 450px;">
-        <div style="text-align: center; color: #888; padding: 20px;">Loading Data...</div>
+        <div style="text-align: center; color: #888; padding: 20px;">Initializing...</div>
     </div>
 
     <div class="disclaimer-box">
         Updates every ~6 minutes.<br>
         <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
-        Build v3.3 (High Visibility Mode)
+        Build v4.0 (Debug Mode)
     </div>
 
     <script>
-        // 1. THE DATABASE
+        // 1. DATABASE
         const STATION_DB = [
             { id: "8661070", name: "Myrtle Beach", lat: 33.6552, lon: -78.9047, zone: "America/New_York" },
             { id: "8517201", name: "Jamaica Bay", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
@@ -77,48 +81,77 @@ export const prerender = true;
 
         const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-        // --- GPS LOGIC ---
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; 
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        // --- UI HELPERS ---
+        function setStatus(msg, color="#555") {
+            const el = document.getElementById('statusMsg');
+            el.innerText = msg;
+            el.style.color = color;
         }
 
+        // --- 1. SIMULATION (TEST BUTTON) ---
+        function simulateSF() {
+            setStatus("🛠 Simulating San Francisco Location...", "#b91c1c");
+            // Fake coordinates for SF
+            handleLocation(37.806, -122.465);
+        }
+
+        // --- 2. GPS LOGIC ---
         function useMyLocation() {
-            const status = document.getElementById('statusMsg');
-            if (!navigator.geolocation) { status.innerText = "Error: GPS not supported by browser."; return; }
+            if (!navigator.geolocation) { 
+                setStatus("🚫 GPS not supported by this browser.", "red"); 
+                return; 
+            }
             
-            status.innerText = "📡 Acquiring GPS...";
+            setStatus("📡 Asking for permission... Check popup.", "#007AFF");
+            
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    
-                    let closest = null;
-                    let minDist = Infinity;
-                    STATION_DB.forEach(st => {
-                        const dist = getDistance(latitude, longitude, st.lat, st.lon);
-                        if (dist < minDist) { minDist = dist; closest = st; }
-                    });
-
-                    if (closest) {
-                        status.innerText = `✅ Found ${closest.name} (${Math.round(minDist)}km away)`;
-                        renderApp(closest); 
-                    } else {
-                        status.innerText = "❌ No stations found in database.";
-                    }
+                    setStatus("✅ GPS Acquired. Calculating...", "green");
+                    handleLocation(pos.coords.latitude, pos.coords.longitude);
                 },
                 (err) => { 
-                    status.innerText = "🚫 Location Denied. Check Settings."; 
                     console.error(err);
-                }
+                    if(err.code === 1) setStatus("🚫 Permission Denied. Reset site permissions.", "red");
+                    else setStatus("🚫 GPS Error: " + err.message, "red");
+                },
+                { timeout: 10000, maximumAge: 60000 }
             );
         }
 
-        // --- FETCH LOGIC ---
+        // --- 3. MATH & FINDER ---
+        function handleLocation(lat, lon) {
+            let closest = null;
+            let minDist = Infinity;
+            
+            // Haversine Formula
+            STATION_DB.forEach(st => {
+                const R = 6371; 
+                const dLat = (st.lat - lat) * Math.PI / 180;
+                const dLon = (st.lon - lon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(lat * Math.PI / 180) * Math.cos(st.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const dist = R * c;
+                
+                if (dist < minDist) { minDist = dist; closest = st; }
+            });
+
+            if (closest) {
+                setStatus(`📍 Nearest: ${closest.name} (${Math.round(minDist)}km)`, "#007AFF");
+                renderApp(closest); 
+            } else {
+                setStatus("❌ No stations found within range.", "red");
+            }
+        }
+
+        // --- 4. FETCH LOGIC ---
+        function getWideNetDate() {
+            const d = new Date(); d.setDate(d.getDate() - 1); 
+            return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+        }
+        
         function noaaToInt(t) { return parseInt(t.replace(/[- :]/g, '')); }
+        
         function getStationWallClockInt(zone) {
             const d = new Date();
             const options = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
@@ -127,24 +160,18 @@ export const prerender = true;
             const getPart = (type) => parts.find(p => p.type === type)?.value || "0";
             return parseInt(`${getPart('year')}${getPart('month').padStart(2,'0')}${getPart('day').padStart(2,'0')}${getPart('hour').padStart(2,'0')}${getPart('minute').padStart(2,'0')}`);
         }
-        function getWideNetDate() {
-            const d = new Date(); d.setDate(d.getDate() - 1); 
-            return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-        }
 
         async function fetchStationData(station) {
             try {
-                // Unique cache buster per request to prevent browser merging duplicates
                 const cb = Date.now() + Math.random(); 
                 const beginDate = getWideNetDate();
                 const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
                 
-                const [schedRes, curRes] = await Promise.all([
-                    fetch(urlBase + "&interval=hilo"), 
-                    fetch(urlBase)
-                ]);
+                const [schedRes, curRes] = await Promise.all([fetch(urlBase + "&interval=hilo"), fetch(urlBase)]);
                 const schedData = await schedRes.json();
                 const curData = await curRes.json();
+
+                if (curData.error) throw new Error(curData.error.message);
 
                 let currentLevel = "---";
                 let trend = "STABLE";
@@ -173,47 +200,50 @@ export const prerender = true;
                 }
 
                 return { ...station, current: currentLevel, trend: trend, timeline: timeline };
-            } catch (err) { return { ...station, error: true }; }
+            } catch (err) { 
+                console.error(err);
+                return { ...station, error: true, errorMsg: err.message }; 
+            }
         }
 
-        // --- RENDERER ---
+        // --- 5. RENDERER ---
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
-            // Only show "Loading" if we are doing a fresh load or a search
-            if (foundStation || container.innerHTML.includes('Loading')) {
-                container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Fetching Data...</div>';
+            // Show loading only if foundStation is passed (interaction) or initial load
+            if (foundStation || container.innerHTML.includes('Initializing')) {
+                container.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Fetching Latest Data...</div>';
             }
 
-            // Build List: Found Station + Defaults
             let list = [];
-            if (foundStation) {
-                // Mark this specific object as "isFound"
-                list.push({ ...foundStation, isFound: true });
-            }
+            if (foundStation) list.push({ ...foundStation, isFound: true });
             DEFAULT_IDS.forEach(id => {
                 const s = STATION_DB.find(db => db.id === id);
                 if (s) list.push(s);
             });
 
-            // Fetch
             const results = await Promise.all(list.map(fetchStationData));
             
-            // Generate HTML
             let finalHTML = '';
             results.forEach(st => {
-                if (st.error) return;
+                // ERROR CARD RENDERER
+                if (st.error) {
+                    finalHTML += `
+                    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:16px; padding:20px; margin-bottom:20px;">
+                        <div style="color:#b91c1c; font-weight:bold;">⚠️ Error loading ${st.name}</div>
+                        <div style="font-size:12px; color:#b91c1c; margin-top:5px;">NOAA Data unavailable.</div>
+                    </div>`;
+                    return;
+                }
 
-                // --- STYLING LOGIC ---
+                // NORMAL CARD RENDERER
                 let cardStyle = "background: white; border: none;";
                 let titleColor = "#111";
                 let labelText = `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
                 let labelColor = "#999";
-                let badge = "";
 
-                // If this is the "Found" station, give it the Special Treatment
                 if (st.isFound) {
                     cardStyle = "background: #f0f7ff; border: 2px solid #007AFF;";
-                    titleColor = "#0056b3"; // Dark Blue Title
+                    titleColor = "#0056b3";
                     labelText = "📍 NEAREST STATION (GPS)";
                     labelColor = "#007AFF";
                 }
