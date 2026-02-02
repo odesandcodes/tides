@@ -6,44 +6,60 @@ export const prerender = true;
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>TideTrack Debug</title>
+    <title>TideTrack</title>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #f0f2f5; margin: 0; padding: 20px; 
+            display: flex; flex-direction: column; align-items: center; 
+        }
         button { cursor: pointer; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .action-btn { background: white; border: 1px solid #ddd; padding: 12px 20px; border-radius: 12px; margin: 5px; font-weight: bold; }
-        .error-box { background: #fee2e2; border: 1px solid #ef4444; color: #b91c1c; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: none; width: 100%; max-width: 400px; font-size: 12px; font-family: monospace; word-break: break-all; }
+        .header { text-align: center; margin-bottom: 20px; width: 100%; max-width: 450px; }
+        .title { font-size: 26px; margin: 0 0 5px 0; font-weight: 900; letter-spacing: -0.5px; }
+        .highlight { color: #007AFF; }
+        .clock-badge {
+            background: white; padding: 4px 12px; border-radius: 20px; 
+            font-weight: 700; color: #555; display: inline-block; 
+            border: 1px solid #ddd; font-size: 13px; margin-top: 5px;
+        }
+        .action-btn {
+            background: white; border: 1px solid #ddd; border-radius: 12px;
+            padding: 12px 24px; font-weight: 600; color: #333;
+            display: flex; align-items: center; gap: 8px; font-size: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 10px;
+        }
+        .action-btn:active { background: #f0f0f0; transform: scale(0.98); }
+        .disclaimer-box {
+            font-size: 10px; color: #999; margin-top: 25px; 
+            line-height: 1.6; max-width: 320px; text-align: center;
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>TideTrack 🛠</h1>
+        <h1 class="title">Tide<span class="highlight">Track</span></h1>
+        <div id="clock" class="clock-badge">--:--</div>
     </div>
 
-    <div id="globalError" class="error-box"></div>
-
-    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <button class="action-btn" onclick="window.useMyLocation()">📍 Use GPS</button>
-        <button class="action-btn" onclick="window.simulateSF()">🌉 Test SF</button>
-    </div>
-
-    <div id="statusMsg" style="text-align: center; color: #666; margin-bottom: 20px; height: 20px;"></div>
+    <button class="action-btn" onclick="window.useMyLocation()">
+        📍 Find Nearest Station
+    </button>
+    
+    <div id="statusMsg" style="text-align: center; font-size: 12px; color: #666; margin-bottom: 20px; height: 18px;"></div>
 
     <div id="app" style="width: 100%; max-width: 450px;">
-        <div style="text-align: center; color: #888;">Initializing...</div>
+        <div style="text-align: center; color: #888; padding: 20px;">Loading Data...</div>
+    </div>
+
+    <div class="disclaimer-box">
+        Updates every ~6 minutes.<br>
+        <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
+        v5.0 (Live)
     </div>
 
     <script is:inline>
-        // --- 1. GLOBAL ERROR TRAP ---
-        window.onerror = function(msg, url, line) {
-            const box = document.getElementById('globalError');
-            box.style.display = 'block';
-            box.innerText = `CRASH: ${msg} (Line ${line})`;
-            return false;
-        };
-
-        // --- 2. DATABASE ---
+        // --- 1. CONFIG ---
         const STATION_DB = [
             { id: "8661070", name: "Myrtle Beach", lat: 33.6552, lon: -78.9047, zone: "America/New_York" },
             { id: "8517201", name: "Jamaica Bay", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
@@ -55,34 +71,28 @@ export const prerender = true;
         ];
         const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-        // --- 3. EXPOSE FUNCTIONS TO WINDOW (Fixes dead buttons) ---
-        window.setStatus = function(msg) {
-            document.getElementById('statusMsg').innerText = msg;
-        };
+        // --- 2. HELPERS ---
+        window.setStatus = (msg) => document.getElementById('statusMsg').innerText = msg;
 
-        window.simulateSF = function() {
-            window.setStatus("🛠 Simulating San Francisco...");
-            window.handleLocation(37.806, -122.465);
-        };
-
+        // --- 3. ACTIONS ---
         window.useMyLocation = function() {
             if (!navigator.geolocation) { 
-                window.setStatus("GPS Not Supported"); 
-                return; 
+                window.setStatus("GPS Not Supported"); return; 
             }
-            window.setStatus("📡 Requesting GPS...");
+            window.setStatus("📡 Locating...");
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    window.setStatus("✅ GPS Found!");
-                    window.handleLocation(pos.coords.latitude, pos.coords.longitude);
+                    window.setStatus("✅ Found. Calculating...");
+                    findNearest(pos.coords.latitude, pos.coords.longitude);
                 },
                 (err) => { 
-                    window.setStatus(`🚫 Error: ${err.message}`); 
+                    console.error(err);
+                    window.setStatus("🚫 Location Access Denied"); 
                 }
             );
         };
 
-        window.handleLocation = function(lat, lon) {
+        function findNearest(lat, lon) {
             let closest = null;
             let minDist = Infinity;
             STATION_DB.forEach(st => {
@@ -97,21 +107,19 @@ export const prerender = true;
             });
 
             if (closest) {
-                window.setStatus(`Nearest: ${closest.name}`);
+                window.setStatus(`📍 Nearest: ${closest.name}`);
                 renderApp(closest);
             } else {
-                window.setStatus("No station found.");
+                window.setStatus("No station found nearby.");
             }
-        };
+        }
 
-        // --- 4. FETCH LOGIC ---
+        // --- 4. DATA FETCH ---
         async function fetchStationData(station) {
             try {
-                const cb = Date.now() + Math.random();
-                // Simpler Date Logic to avoid crashes
+                const cb = Date.now();
                 const d = new Date(); d.setDate(d.getDate() - 1);
                 const beginDate = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-                
                 const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
                 
                 const [schedRes, curRes] = await Promise.all([fetch(urlBase + "&interval=hilo"), fetch(urlBase)]);
@@ -121,23 +129,17 @@ export const prerender = true;
                 let currentLevel = "---";
                 let trend = "---";
                 
-                // Helper to parse NOAA time string "YYYY-MM-DD HH:MM" to Int
-                const noaaToInt = (t) => parseInt(t.replace(/[- :]/g, ''));
-                
-                // Get Station Wall Clock Time
                 const now = new Date();
                 const timeString = now.toLocaleString("en-US", {timeZone: station.zone, hour12: false}); 
-                // Simple parsing of locale string to Int (Robust method)
                 const tempDate = new Date(timeString);
                 const stationTimeInt = parseInt(`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(tempDate.getHours()).padStart(2,'0')}${String(tempDate.getMinutes()).padStart(2,'0')}`);
+                const noaaToInt = (t) => parseInt(t.replace(/[- :]/g, ''));
 
                 if (curData.predictions) {
                     const closest = curData.predictions.reduce((prev, curr) => {
                         return (Math.abs(stationTimeInt - noaaToInt(curr.t)) < Math.abs(stationTimeInt - noaaToInt(prev.t))) ? curr : prev;
                     });
                     currentLevel = parseFloat(closest.v).toFixed(1);
-                    
-                    // Trend
                     const idx = curData.predictions.indexOf(closest);
                     if (idx < curData.predictions.length - 1) {
                          const nextVal = parseFloat(curData.predictions[idx+1].v);
@@ -152,19 +154,13 @@ export const prerender = true;
                         .slice(0, 4)
                         .map(p => ({ time: p.t, val: p.v, isHigh: p.type === 'H' }));
                 }
-
                 return { ...station, current: currentLevel, trend, timeline };
-            } catch (err) {
-                console.error(err);
-                return { ...station, error: true, msg: err.message };
-            }
+            } catch (err) { return { ...station, error: true }; }
         }
 
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
-            if (foundStation || container.innerText.includes('Initializing')) {
-                container.innerHTML = '<div style="padding:20px;">Loading Tides...</div>';
-            }
+            if (foundStation || container.innerText.includes('Loading')) container.innerHTML = '<div style="padding:20px;text-align:center;">Updating Tides...</div>';
 
             let list = [];
             if (foundStation) list.push({ ...foundStation, isFound: true });
@@ -174,13 +170,10 @@ export const prerender = true;
             });
 
             const results = await Promise.all(list.map(fetchStationData));
-            
             let html = '';
+
             results.forEach(st => {
-                if (st.error) {
-                    html += `<div style="color:red; background:#fee; padding:15px; margin-bottom:10px; border-radius:10px;">⚠️ Error: ${st.name}</div>`;
-                    return;
-                }
+                if (st.error) return; 
                 
                 let rows = st.timeline.map(e => {
                     const tParts = e.time.split(' ')[1].split(':');
@@ -194,23 +187,40 @@ export const prerender = true;
                     </div>`;
                 }).join('');
 
-                const style = st.isFound ? "border: 2px solid #007AFF; background:#f0f9ff;" : "background:white;";
-                
+                const isRising = st.trend === "RISING";
+                // Special styling for Found Station
+                const cardStyle = st.isFound ? "border: 2px solid #007AFF; background:#f0f9ff;" : "background:white;";
+                const titleColor = st.isFound ? "#0056b3" : "#111";
+                const label = st.isFound ? "📍 NEAREST STATION" : `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
+
                 html += `
-                <div style="${style} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
-                    <div style="font-size:18px; font-weight:800; margin-bottom:5px;">${st.name}</div>
-                    <div style="font-size:32px; font-weight:900; color:#007AFF;">
-                        ${st.current}<span style="font-size:16px; color:#999;">ft</span> 
-                        <span style="font-size:14px; color:${st.trend==='RISING'?'green':'red'}; background:#eee; padding:2px 6px; border-radius:4px;">${st.trend}</span>
+                <div style="${cardStyle} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <div>
+                            <div style="font-size:18px; font-weight:800; color:${titleColor};">${st.name}</div>
+                            <div style="font-size:10px; font-weight:700; color:#999; margin-top:4px;">${label}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:32px; font-weight:900; color:#007AFF;">
+                                ${st.current}<span style="font-size:16px; color:#999;">ft</span> 
+                            </div>
+                            <div style="font-size:12px; font-weight:800; color:${isRising?'#10b981':'#ef4444'}; background:${isRising?'#ecfdf5':'#fef2f2'}; padding:2px 8px; border-radius:6px; display:inline-block;">
+                                ${isRising?'↑ RISING':'↓ FALLING'}
+                            </div>
+                        </div>
                     </div>
-                    <div style="margin-top:15px;">${rows}</div>
+                    <div style="margin-top:10px;">${rows}</div>
                 </div>`;
             });
             container.innerHTML = html;
         }
 
-        // --- 5. STARTUP ---
-        alert("System Ready: Click OK to start."); // PROOF OF LIFE
+        // --- 5. CLOCK ---
+        setInterval(() => {
+            const c = document.getElementById('clock');
+            if(c) c.innerText = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+        }, 1000);
+
         renderApp();
     </script>
 </body>
