@@ -60,11 +60,11 @@ export const prerender = true;
     <div class="disclaimer-box">
         Updates every ~6 minutes.<br>
         <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
-        Build v3.1 (Clean Interface)
+        Build v3.2 (Always Show Nearest)
     </div>
 
     <script>
-        // 1. THE DATABASE (Expand this list whenever you want)
+        // 1. THE DATABASE
         const STATION_DB = [
             { id: "8661070", name: "Myrtle Beach", lat: 33.6552, lon: -78.9047, zone: "America/New_York" },
             { id: "8517201", name: "Jamaica Bay", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
@@ -75,12 +75,12 @@ export const prerender = true;
             { id: "9447130", name: "Seattle", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
         ];
 
-        // 2. THE DEFAULTS (Your main list)
+        // 2. THE DEFAULTS
         const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
         // --- MATH: Distance Calculation ---
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth radius km
+            const R = 6371; 
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -88,7 +88,7 @@ export const prerender = true;
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // --- ACTION: Button Click (Requires User Interaction by Browser Law) ---
+        // --- ACTION: Button Click ---
         function useMyLocation() {
             const status = document.getElementById('statusMsg');
             if (!navigator.geolocation) { status.innerText = "GPS not supported"; return; }
@@ -98,7 +98,6 @@ export const prerender = true;
                 (pos) => {
                     const { latitude, longitude } = pos.coords;
                     
-                    // Find closest station in our DB
                     let closest = null;
                     let minDist = Infinity;
                     STATION_DB.forEach(st => {
@@ -108,14 +107,14 @@ export const prerender = true;
 
                     if (closest) {
                         status.innerText = `Found: ${closest.name} (${Math.round(minDist)}km away)`;
-                        renderApp(closest); // Reload app with nearest station at top
+                        renderApp(closest); 
                     }
                 },
                 () => { status.innerText = "Location access denied."; }
             );
         }
 
-        // --- CORE LOGIC (Same as before) ---
+        // --- CORE LOGIC ---
         function noaaToInt(t) { return parseInt(t.replace(/[- :]/g, '')); }
         
         function getStationWallClockInt(zone) {
@@ -175,18 +174,20 @@ export const prerender = true;
             } catch (err) { return { ...station, error: true }; }
         }
 
-        // --- RENDER ---
+        // --- RENDER (UPDATED: Duplicates Allowed) ---
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
             if (!container.innerHTML.includes('Loading')) container.innerHTML = '<div style="text-align:center;color:#888;">Updating...</div>';
 
-            // Build the list: Found Station FIRST, then Defaults
+            // 1. If Found Station exists, put it FIRST
             let list = [];
-            if (foundStation) list.push({ ...foundStation, isFound: true });
+            if (foundStation) {
+                list.push({ ...foundStation, isFound: true });
+            }
             
+            // 2. Always add Defaults (Even if it's the same station)
+            // This ensures your "Favorites" list below never changes.
             DEFAULT_IDS.forEach(id => {
-                // Avoid showing the same station twice
-                if (foundStation && foundStation.id === id) return; 
                 const s = STATION_DB.find(db => db.id === id);
                 if (s) list.push(s);
             });
@@ -211,6 +212,7 @@ export const prerender = true;
                 }).join('');
 
                 const isRising = st.trend === "RISING";
+                // Style the "Found" card differently (Blue border + Blue Title)
                 const border = st.isFound ? "border: 2px solid #007AFF; background: #f0f9ff;" : "background: white;";
                 const label = st.isFound ? "📍 NEAREST STATION" : `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
 
