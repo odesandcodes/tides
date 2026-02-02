@@ -123,14 +123,26 @@ export async function GET({ request }) {
   });
 
   // --- 4. NOAA FETCH LOGIC ---
-  const getWallClockInt = (zone: string) => {
-    const d = new Date();
-    const options: Intl.DateTimeFormatOptions = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-    const formatter = new Intl.DateTimeFormat('en-US', options);
-    const parts = formatter.formatToParts(d);
-    const getPart = (type: string) => parts.find(p => p.type === type)?.value || "0";
-    return parseInt(`${getPart('year')}${getPart('month').padStart(2, '0')}${getPart('day').padStart(2, '0')}${getPart('hour').padStart(2, '0')}${getPart('minute').padStart(2, '0')}`);
-  };
+  // OLD BROKEN FUNCTION:
+// const getWallClockInt = (zone: string) => { ... }
+
+// NEW FIXED FUNCTION:
+const getWallClockInt = (zone: string) => {
+    const now = new Date();
+    // Convert the UTC server time to the station's local time string
+    const localString = now.toLocaleString("en-US", { timeZone: zone, hour12: false });
+    // Parse that string back into a Date object to get the parts
+    const d = new Date(localString);
+    
+    // Format as YYYYMMDDHHMM
+    return parseInt(
+        `${d.getFullYear()}` +
+        `${String(d.getMonth() + 1).padStart(2, '0')}` +
+        `${String(d.getDate()).padStart(2, '0')}` +
+        `${String(d.getHours()).padStart(2, '0')}` +
+        `${String(d.getMinutes()).padStart(2, '0')}`
+    );
+};
 
   const noaaToInt = (t: string) => parseInt(t.replace(/[- :]/g, ''));
   const getWideNetDate = () => {
