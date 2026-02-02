@@ -1,7 +1,6 @@
 export const prerender = false;
 
-// --- 1. THE SHARED DATABASE ---
-// (Copy this same list to index.astro so they match)
+// --- 1. THE MASTER DATABASE ---
 const STATION_DB = [
     // --- NORTHEAST ---
     { id: "8418150", name: "Portland, ME", lat: 43.6567, lon: -70.2467, zone: "America/New_York" },
@@ -14,7 +13,6 @@ const STATION_DB = [
     { id: "8517201", name: "Jamaica Bay, NY", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
     { id: "8531680", name: "Sandy Hook, NJ", lat: 40.467, lon: -74.009, zone: "America/New_York" },
     { id: "8534720", name: "Atlantic City, NJ", lat: 39.355, lon: -74.418, zone: "America/New_York" },
-
     // --- MID-ATLANTIC ---
     { id: "8557380", name: "Lewes, DE", lat: 38.782, lon: -75.120, zone: "America/New_York" },
     { id: "8570283", name: "Ocean City, MD", lat: 38.328, lon: -75.091, zone: "America/New_York" },
@@ -22,7 +20,6 @@ const STATION_DB = [
     { id: "8651370", name: "Duck, NC", lat: 36.183, lon: -75.746, zone: "America/New_York" },
     { id: "8656483", name: "Beaufort, NC", lat: 34.720, lon: -76.670, zone: "America/New_York" },
     { id: "8658120", name: "Wilmington, NC", lat: 34.226, lon: -77.953, zone: "America/New_York" },
-
     // --- SOUTHEAST ---
     { id: "8661070", name: "Myrtle Beach, SC", lat: 33.655, lon: -78.905, zone: "America/New_York" },
     { id: "8665530", name: "Charleston, SC", lat: 32.781, lon: -79.925, zone: "America/New_York" },
@@ -31,7 +28,6 @@ const STATION_DB = [
     { id: "8721604", name: "Trident Pier, FL", lat: 28.416, lon: -80.593, zone: "America/New_York" },
     { id: "8723214", name: "Virginia Key, Miami", lat: 25.731, lon: -80.162, zone: "America/New_York" },
     { id: "8724580", name: "Key West, FL", lat: 24.555, lon: -81.808, zone: "America/New_York" },
-
     // --- GULF COAST ---
     { id: "8725110", name: "Naples, FL", lat: 26.131, lon: -81.807, zone: "America/New_York" },
     { id: "8726520", name: "St. Petersburg, FL", lat: 27.760, lon: -82.627, zone: "America/New_York" },
@@ -43,7 +39,6 @@ const STATION_DB = [
     { id: "8771450", name: "Galveston, TX", lat: 29.310, lon: -94.793, zone: "America/Chicago" },
     { id: "8775870", name: "Corpus Christi, TX", lat: 27.580, lon: -97.216, zone: "America/Chicago" },
     { id: "8779770", name: "South Padre Island, TX", lat: 26.069, lon: -97.155, zone: "America/Chicago" },
-
     // --- WEST COAST ---
     { id: "9410170", name: "San Diego, CA", lat: 32.714, lon: -117.175, zone: "America/Los_Angeles" },
     { id: "9410230", name: "La Jolla, CA", lat: 32.866, lon: -117.254, zone: "America/Los_Angeles" },
@@ -57,7 +52,6 @@ const STATION_DB = [
     { id: "9416841", name: "Arena Cove, CA", lat: 38.914, lon: -123.708, zone: "America/Los_Angeles" },
     { id: "9418767", name: "Humboldt Bay, CA", lat: 40.767, lon: -124.217, zone: "America/Los_Angeles" },
     { id: "9419750", name: "Crescent City, CA", lat: 41.745, lon: -124.183, zone: "America/Los_Angeles" },
-
     // --- PACIFIC NORTHWEST ---
     { id: "9431647", name: "Port Orford, OR", lat: 42.737, lon: -124.498, zone: "America/Los_Angeles" },
     { id: "9435380", name: "South Beach, OR", lat: 44.626, lon: -124.043, zone: "America/Los_Angeles" },
@@ -67,10 +61,10 @@ const STATION_DB = [
     { id: "9447130", name: "Seattle, WA", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
 ];
 
-const DEFAULT_IDS = ["8661070", "8517201"]; // Fallback if no location given
+const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
 
-// Math Helper: Haversine Distance
-function getDistance(lat1, lon1, lat2, lon2) {
+// --- 2. GPS MATH (The "Smart" Part) ---
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -79,15 +73,21 @@ function getDistance(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// --- 3. THE API HANDLER ---
 export async function GET({ request }) {
   const url = new URL(request.url);
+  
+  // Grab params from URL (sent by Siri or Browser)
+  const latParam = url.searchParams.get("lat");
+  const lonParam = url.searchParams.get("lon");
   const query = url.searchParams.get("q")?.toLowerCase();
-  const lat = parseFloat(url.searchParams.get("lat"));
-  const lon = parseFloat(url.searchParams.get("lon"));
+
+  const lat = latParam ? parseFloat(latParam) : NaN;
+  const lon = lonParam ? parseFloat(lonParam) : NaN;
 
   let targets = [];
 
-  // STRATEGY 1: GPS Coordinates provided (Priority)
+  // STRATEGY 1: GPS Coordinates (Highest Priority)
   if (!isNaN(lat) && !isNaN(lon)) {
       let closest = null;
       let minDist = Infinity;
@@ -95,20 +95,24 @@ export async function GET({ request }) {
           const dist = getDistance(lat, lon, st.lat, st.lon);
           if (dist < minDist) { minDist = dist; closest = st; }
       });
-      // Only return if within 100km, otherwise user might be in a desert
-      if (closest) targets = [closest];
+      // 150km radius (approx 90 miles) - if you are further than that, it's risky to guess
+      if (closest && minDist < 150) {
+          targets = [closest];
+      } else {
+          return new Response("You are too far from the coast. No nearby station found.", { status: 200 });
+      }
   } 
   // STRATEGY 2: Text Search
   else if (query) {
       targets = STATION_DB.filter(s => s.name.toLowerCase().includes(query));
       if (targets.length === 0) return new Response(`No matching station found for "${query}".`, { status: 200 });
   } 
-  // STRATEGY 3: Defaults
+  // STRATEGY 3: Defaults (Fallback)
   else {
       targets = STATION_DB.filter(s => DEFAULT_IDS.includes(s.id));
   }
 
-  // --- STANDARD FETCH LOGIC (Same as always) ---
+  // --- 4. NOAA FETCH LOGIC ---
   const getWallClockInt = (zone: string) => {
     const d = new Date();
     const options: Intl.DateTimeFormatOptions = { timeZone: zone, hour12: false, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' };
@@ -130,10 +134,9 @@ export async function GET({ request }) {
       targets.map(async (site) => {
         const cb = Date.now();
         const beginDate = getWideNetDate();
-        const schedUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${site.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&interval=hilo&format=json&application=TideTrack&cb=${cb}`;
-        const curUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${site.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
-
-        const [schedRes, curRes] = await Promise.all([fetch(schedUrl), fetch(curUrl)]);
+        const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${site.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
+        
+        const [schedRes, curRes] = await Promise.all([fetch(urlBase + "&interval=hilo"), fetch(urlBase)]);
         const schedJson = await schedRes.json();
         const curJson = await curRes.json();
 
@@ -156,9 +159,6 @@ export async function GET({ request }) {
             if (idx < curJson.predictions.length - 1) {
                 const nextVal = parseFloat(curJson.predictions[idx+1].v);
                 trend = nextVal > val ? "rising" : "falling";
-            } else if (idx > 0) {
-                const prevVal = parseFloat(curJson.predictions[idx-1].v);
-                trend = val > prevVal ? "rising" : "falling";
             }
         }
 
