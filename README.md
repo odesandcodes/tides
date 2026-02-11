@@ -1,44 +1,69 @@
 # TideTrack
 
-A dual-engine tide monitoring application for Myrtle Beach and Jamaica Bay. 
+Real-time tide predictions for 60+ coastal stations across the US.
 
-## 🚀 Live Demo
-- **Dashboard:** `https://[your-site].pages.dev`
-- **Siri Feed:** `https://[your-site].pages.dev/api/tide-data`
+**Live:** [tides.odesandcodes.com](https://tides.odesandcodes.com)
 
-## ✨ Features
+## Features
 
-### 1. Visual Dashboard (Frontend)
-- **High Precision Mode:** Fetches data every **6 minutes** for near real-time water levels.
-- **Zero-Crash Architecture:** Fetches data directly from NOAA in the browser (Client-side).
-- **Jamless Layout:** Uses HTML Tables and Inline CSS to prevent layout shifts.
-- **Auto-Timezone:** Clock detects browser location (EST/EDT/PST).
+- 🌊 **Real-time tide data** from NOAA API
+- 📍 **GPS location** - finds nearest tide station automatically
+- 📊 **72-hour predictions** - current level, trend, and upcoming highs/lows
+- 🗺️ **60+ stations** - covering Atlantic, Pacific, and Gulf coasts
+- 📱 **Mobile-optimized** - clean, responsive design
 
-### 2. Siri Intelligence (Backend API)
-- **Natural Language:** Returns a simple paragraph of text Siri can read directly.
-- **Timezone Proof:** Uses "Integer Math" (e.g., `20260123`) to sync NOAA data with Wall Clock time, ignoring Server UTC offsets.
-- **Smart Trends:** Calculates "Rising/Falling" logic by scanning 6-minute intervals.
+## Coverage
 
-## 📱 How to Set Up Siri
+**East Coast:** Maine to Florida Keys  
+**Gulf Coast:** Florida to South Padre Island, TX  
+**West Coast:** San Diego to Seattle  
 
-1. Open **Shortcuts** on iPhone.
-2. Create a new Shortcut named **"Check Tides"**.
-3. Add Action: **"Get Contents of URL"** -> Paste your `/api/tide-data` link.
-4. Add Action: **"Speak Text"** -> Select `Contents of URL`.
-5. Done.
 
-## 🛠️ Tech Stack
+## How It Works
 
-- **Framework:** Astro (Serverless)
-- **Deployment:** Cloudflare Pages
-- **Data:** NOAA Tides & Currents API
+1. Click "Find Nearest Station" to use GPS location
+2. App calculates distance to all 60+ stations
+3. Shows current water level, rising/falling trend, and next 4 tide events
+4. Updates every ~6 minutes from NOAA API
 
-## ⚠️ Disclaimer
+## Data Source
 
-**EDUCATIONAL USE ONLY.**
-This data is estimated and may be inaccurate. 
-**DO NOT USE FOR NAVIGATION.** Not affiliated with NOAA.
+All tide predictions sourced from:  
+**NOAA CO-OPS API** (Tides and Currents)  
+https://api.tidesandcurrents.noaa.gov
+
+- Datum: MLLW (Mean Lower Low Water)
+- Units: English (feet)
+- Time Zone: Local (station-specific)
+- Product: Predictions (not observed)
+
+## Tech Stack
+
+- **Astro** - Static site generation
+- **NOAA API** - Tide prediction data
+- **Geolocation API** - GPS positioning
+- **Vanilla JavaScript** - No frameworks
+
+
+
+## Disclaimer
+
+⚠️ **EDUCATIONAL USE ONLY**  
+
+This application provides tide predictions for informational and educational purposes. 
+
+**NOT FOR NAVIGATION** - Do not use for marine navigation, fishing, or any activity where safety depends on accurate tide data. Always consult official NOAA sources and local authorities for critical tide information.
+
+Tide predictions are estimates and may differ from actual conditions due to weather, barometric pressure, and other factors.
+
+## Station Database
+
+60+ stations indexed by NOAA Station ID with precise coordinates and timezone data. See `STATION_DB` array in source for complete list.
 
 ## License
 
-MIT License. Copyright (c) 2026 TideTrack.
+MIT
+
+---
+
+Data provided by NOAA/NOS/CO-OPS. All rights reserved.
