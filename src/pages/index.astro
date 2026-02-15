@@ -54,8 +54,7 @@ export const prerender = true;
 
     <div class="disclaimer-box">
         Updates every ~6 minutes.<br>
-        <strong>⚠️ EDUCATIONAL USE ONLY</strong><br>
-        v5.0 (Live)
+        <strong>⚠️ EDUCATIONAL USE ONLY- NOT FOR NAVIGATIONAL PURPOSES. EVER.</strong><br>
     </div>
 
     <script is:inline>
@@ -70,6 +69,7 @@ export const prerender = true;
     { id: "8510560", name: "Montauk, NY", lat: 41.048, lon: -71.960, zone: "America/New_York" },
     { id: "8518750", name: "The Battery, NYC", lat: 40.700, lon: -74.014, zone: "America/New_York" },
     { id: "8517201", name: "Jamaica Bay, NY", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
+    { id: "8516614", name: "Glen Cove, Hempstead Harbor", lat: 40.8633, lon: -73.6550, zone: "America/New_York" },
     { id: "8531680", name: "Sandy Hook, NJ", lat: 40.467, lon: -74.009, zone: "America/New_York" },
     { id: "8534720", name: "Atlantic City, NJ", lat: 39.355, lon: -74.418, zone: "America/New_York" },
 
@@ -124,7 +124,7 @@ export const prerender = true;
     { id: "9443090", name: "Neah Bay, WA", lat: 48.370, lon: -124.602, zone: "America/Los_Angeles" },
     { id: "9447130", name: "Seattle, WA", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
 ];
-        const DEFAULT_IDS = ["8661070", "8517201", "9410580"];
+const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
 
         // --- 2. HELPERS ---
         window.setStatus = (msg) => document.getElementById('statusMsg').innerText = msg;
