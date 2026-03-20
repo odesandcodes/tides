@@ -448,8 +448,9 @@ export const prerender = true;
                  const tParts = e.time.split(' ')[1].split(':');
                  const h = tParts[0].padStart(2, '0');
                   return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
-                    <span style="font-weight:800; font-size:12px; color:${e.isHigh ? '#007AFF' : '#555'}">${idx === 0 ? 'NEXT ' : idx === 1 ? 'NEXT ' : ''}${e.isHigh ? 'HIGH TIDE' : 'LOW TIDE'}</span>                    <span><strong style="font-size:1em; color:#333;">${h}:${tParts[1]}</strong> <span style="color:#888; font-size:0.85em;">${parseFloat(e.val).toFixed(1)} ft</span></span>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee; opacity:${idx > 1 ? '0.4' : '1'}">
+                    <span style="font-weight:800; font-size:12px; color:${e.isHigh ? '#007AFF' : '#555'}">${idx < 2 ? 'NEXT ' : ''}${e.isHigh ? 'HIGH TIDE' : 'LOW TIDE'}</span>
+                    <span style="font-variant-numeric:tabular-nums;"><strong style="color:#333;">${h}:${tParts[1]}</strong> <span style="color:#aaa; font-size:0.85em; display:inline-block; width:45px; text-align:right;">${parseFloat(e.val).toFixed(1)} ft</span></span>
                 </div>`;
                 }).join('');
 
