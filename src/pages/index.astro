@@ -33,6 +33,18 @@ export const prerender = true;
             font-size: 10px; color: #999; margin-top: 25px; 
             line-height: 1.6; max-width: 320px; text-align: center;
         }
+        .temp-strip {
+            display: flex; align-items: center; gap: 10px;
+            background: #f0f9ff; border-radius: 10px;
+            padding: 10px 14px; margin-bottom: 12px;
+        }
+        .temp-value {
+            font-size: 24px; font-weight: 900; color: #007AFF; line-height: 1;
+        }
+        .temp-value span { font-size: 14px; font-weight: 700; }
+        .temp-label { font-size: 11px; font-weight: 800; color: #007AFF; letter-spacing: 0.3px; }
+        .temp-source { font-size: 10px; color: #888; margin-top: 2px; }
+        .chart-wrap { position: relative; height: 110px; margin: 8px 0 4px; }
     </style>
 </head>
 <body>
@@ -54,113 +66,269 @@ export const prerender = true;
 
     <div class="disclaimer-box">
         Updates every ~6 minutes.<br>
-        <strong>⚠️ EDUCATIONAL USE ONLY- NOT FOR NAVIGATIONAL PURPOSES. EVER.</strong><br>
+        <strong>⚠️ EDUCATIONAL USE ONLY — NOT FOR NAVIGATIONAL PURPOSES. EVER.</strong>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
     <script is:inline>
-        // --- 1. CONFIG ---
+
+        // --- STATION DB ---
         const STATION_DB = [
-    // --- NORTHEAST ---
-    { id: "8418150", name: "Portland, ME", lat: 43.6567, lon: -70.2467, zone: "America/New_York" },
-    { id: "8443970", name: "Boston, MA", lat: 42.3539, lon: -71.0503, zone: "America/New_York" },
-    { id: "8447930", name: "Woods Hole, MA", lat: 41.524, lon: -70.671, zone: "America/New_York" },
-    { id: "8452660", name: "Newport, RI", lat: 41.504, lon: -71.326, zone: "America/New_York" },
-    { id: "8467150", name: "Bridgeport, CT", lat: 41.173, lon: -73.181, zone: "America/New_York" },
-    { id: "8510560", name: "Montauk, NY", lat: 41.048, lon: -71.960, zone: "America/New_York" },
-    { id: "8518750", name: "The Battery, NYC", lat: 40.700, lon: -74.014, zone: "America/New_York" },
-    { id: "8517201", name: "Jamaica Bay, NY", lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
-    { id: "8516614", name: "Glen Cove, Hempstead Harbor", lat: 40.8633, lon: -73.6550, zone: "America/New_York" },
-    { id: "8531680", name: "Sandy Hook, NJ", lat: 40.467, lon: -74.009, zone: "America/New_York" },
-    { id: "8534720", name: "Atlantic City, NJ", lat: 39.355, lon: -74.418, zone: "America/New_York" },
+            { id: "8418150", name: "Portland, ME",               lat: 43.6567, lon: -70.2467, zone: "America/New_York" },
+            { id: "8443970", name: "Boston, MA",                 lat: 42.3539, lon: -71.0503, zone: "America/New_York" },
+            { id: "8447930", name: "Woods Hole, MA",             lat: 41.524,  lon: -70.671,  zone: "America/New_York" },
+            { id: "8452660", name: "Newport, RI",                lat: 41.504,  lon: -71.326,  zone: "America/New_York" },
+            { id: "8467150", name: "Bridgeport, CT",             lat: 41.173,  lon: -73.181,  zone: "America/New_York" },
+            { id: "8510560", name: "Montauk, NY",                lat: 41.048,  lon: -71.960,  zone: "America/New_York" },
+            { id: "8518750", name: "The Battery, NYC",           lat: 40.700,  lon: -74.014,  zone: "America/New_York" },
+            { id: "8517201", name: "Jamaica Bay, NY",            lat: 40.5956, lon: -73.8342, zone: "America/New_York" },
+            { id: "8516614", name: "Glen Cove, NY",              lat: 40.8633, lon: -73.6550, zone: "America/New_York" },
+            { id: "8531680", name: "Sandy Hook, NJ",             lat: 40.467,  lon: -74.009,  zone: "America/New_York" },
+            { id: "8534720", name: "Atlantic City, NJ",          lat: 39.355,  lon: -74.418,  zone: "America/New_York" },
+            { id: "8557380", name: "Lewes, DE",                  lat: 38.782,  lon: -75.120,  zone: "America/New_York" },
+            { id: "8570283", name: "Ocean City, MD",             lat: 38.328,  lon: -75.091,  zone: "America/New_York" },
+            { id: "8638610", name: "Sewells Point, VA",          lat: 36.946,  lon: -76.330,  zone: "America/New_York" },
+            { id: "8651370", name: "Duck, NC",                   lat: 36.183,  lon: -75.746,  zone: "America/New_York" },
+            { id: "8656483", name: "Beaufort, NC",               lat: 34.720,  lon: -76.670,  zone: "America/New_York" },
+            { id: "8658120", name: "Wilmington, NC",             lat: 34.226,  lon: -77.953,  zone: "America/New_York" },
+            { id: "8661070", name: "Myrtle Beach, SC",           lat: 33.655,  lon: -78.905,  zone: "America/New_York" },
+            { id: "8665530", name: "Charleston, SC",             lat: 32.781,  lon: -79.925,  zone: "America/New_York" },
+            { id: "8670870", name: "Fort Pulaski, GA",           lat: 32.034,  lon: -80.902,  zone: "America/New_York" },
+            { id: "8720030", name: "Fernandina Beach, FL",       lat: 30.671,  lon: -81.465,  zone: "America/New_York" },
+            { id: "8721604", name: "Trident Pier, FL",           lat: 28.416,  lon: -80.593,  zone: "America/New_York" },
+            { id: "8723214", name: "Virginia Key, Miami",        lat: 25.731,  lon: -80.162,  zone: "America/New_York" },
+            { id: "8724580", name: "Key West, FL",               lat: 24.555,  lon: -81.808,  zone: "America/New_York" },
+            { id: "8725110", name: "Naples, FL",                 lat: 26.131,  lon: -81.807,  zone: "America/New_York" },
+            { id: "8726520", name: "St. Petersburg, FL",         lat: 27.760,  lon: -82.627,  zone: "America/New_York" },
+            { id: "8727520", name: "Cedar Key, FL",              lat: 29.135,  lon: -83.031,  zone: "America/New_York" },
+            { id: "8729108", name: "Panama City, FL",            lat: 30.151,  lon: -85.666,  zone: "America/Chicago" },
+            { id: "8729840", name: "Pensacola, FL",              lat: 30.404,  lon: -87.211,  zone: "America/Chicago" },
+            { id: "8735180", name: "Dauphin Island, AL",         lat: 30.250,  lon: -88.075,  zone: "America/Chicago" },
+            { id: "8761724", name: "Grand Isle, LA",             lat: 29.263,  lon: -89.956,  zone: "America/Chicago" },
+            { id: "8771450", name: "Galveston, TX",              lat: 29.310,  lon: -94.793,  zone: "America/Chicago" },
+            { id: "8775870", name: "Corpus Christi, TX",         lat: 27.580,  lon: -97.216,  zone: "America/Chicago" },
+            { id: "8779770", name: "South Padre Island, TX",     lat: 26.069,  lon: -97.155,  zone: "America/Chicago" },
+            { id: "9410170", name: "San Diego, CA",              lat: 32.714,  lon: -117.175, zone: "America/Los_Angeles" },
+            { id: "9410230", name: "La Jolla, CA",               lat: 32.866,  lon: -117.254, zone: "America/Los_Angeles" },
+            { id: "9410580", name: "Newport Beach, CA",          lat: 33.603,  lon: -117.883, zone: "America/Los_Angeles" },
+            { id: "9410660", name: "Los Angeles, CA",            lat: 33.720,  lon: -118.272, zone: "America/Los_Angeles" },
+            { id: "9411340", name: "Santa Barbara, CA",          lat: 34.404,  lon: -119.692, zone: "America/Los_Angeles" },
+            { id: "9412110", name: "Port San Luis, CA",          lat: 35.176,  lon: -120.760, zone: "America/Los_Angeles" },
+            { id: "9413450", name: "Monterey, CA",               lat: 36.604,  lon: -121.892, zone: "America/Los_Angeles" },
+            { id: "9414290", name: "San Francisco, CA",          lat: 37.806,  lon: -122.465, zone: "America/Los_Angeles" },
+            { id: "9415020", name: "Point Reyes, CA",            lat: 37.995,  lon: -122.973, zone: "America/Los_Angeles" },
+            { id: "9416841", name: "Arena Cove, CA",             lat: 38.914,  lon: -123.708, zone: "America/Los_Angeles" },
+            { id: "9418767", name: "Humboldt Bay, CA",           lat: 40.767,  lon: -124.217, zone: "America/Los_Angeles" },
+            { id: "9419750", name: "Crescent City, CA",          lat: 41.745,  lon: -124.183, zone: "America/Los_Angeles" },
+            { id: "9431647", name: "Port Orford, OR",            lat: 42.737,  lon: -124.498, zone: "America/Los_Angeles" },
+            { id: "9435380", name: "South Beach, OR",            lat: 44.626,  lon: -124.043, zone: "America/Los_Angeles" },
+            { id: "9439040", name: "Astoria, OR",                lat: 46.207,  lon: -123.767, zone: "America/Los_Angeles" },
+            { id: "9440910", name: "Toke Point, WA",             lat: 46.705,  lon: -123.965, zone: "America/Los_Angeles" },
+            { id: "9443090", name: "Neah Bay, WA",               lat: 48.370,  lon: -124.602, zone: "America/Los_Angeles" },
+            { id: "9447130", name: "Seattle, WA",                lat: 47.601,  lon: -122.339, zone: "America/Los_Angeles" }
+        ];
 
-    // --- MID-ATLANTIC ---
-    { id: "8557380", name: "Lewes, DE", lat: 38.782, lon: -75.120, zone: "America/New_York" },
-    { id: "8570283", name: "Ocean City, MD", lat: 38.328, lon: -75.091, zone: "America/New_York" },
-    { id: "8638610", name: "Sewells Point, VA", lat: 36.946, lon: -76.330, zone: "America/New_York" },
-    { id: "8651370", name: "Duck, NC", lat: 36.183, lon: -75.746, zone: "America/New_York" },
-    { id: "8656483", name: "Beaufort, NC", lat: 34.720, lon: -76.670, zone: "America/New_York" },
-    { id: "8658120", name: "Wilmington, NC", lat: 34.226, lon: -77.953, zone: "America/New_York" },
+        const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
 
-    // --- SOUTHEAST ---
-    { id: "8661070", name: "Myrtle Beach, SC", lat: 33.655, lon: -78.905, zone: "America/New_York" },
-    { id: "8665530", name: "Charleston, SC", lat: 32.781, lon: -79.925, zone: "America/New_York" },
-    { id: "8670870", name: "Fort Pulaski, GA", lat: 32.034, lon: -80.902, zone: "America/New_York" },
-    { id: "8720030", name: "Fernandina Beach, FL", lat: 30.671, lon: -81.465, zone: "America/New_York" },
-    { id: "8721604", name: "Trident Pier, FL", lat: 28.416, lon: -80.593, zone: "America/New_York" },
-    { id: "8723214", name: "Virginia Key, Miami", lat: 25.731, lon: -80.162, zone: "America/New_York" },
-    { id: "8724580", name: "Key West, FL", lat: 24.555, lon: -81.808, zone: "America/New_York" },
+        // --- CONFIRMED WATER TEMP STATIONS (hardcoded fallback list) ---
+        // These are confirmed NOAA CO-OPS physical oceanography stations
+        const TEMP_STATIONS = [
+            // Northeast
+            { id: "8443970", name: "Boston, MA",           lat: 42.3539, lon: -71.0503 },
+            { id: "8447930", name: "Woods Hole, MA",       lat: 41.524,  lon: -70.671  },
+            { id: "8452660", name: "Newport, RI",          lat: 41.504,  lon: -71.326  },
+            // NYC / Long Island - North Shore, South Shore, Harbor
+            { id: "8510560", name: "Montauk, NY",          lat: 41.048,  lon: -71.960  },
+            { id: "8516945", name: "Kings Point, NY",      lat: 40.810,  lon: -73.765  },
+            { id: "8465705", name: "New Haven, CT",        lat: 41.283, lon: -72.908 },
+            { id: "8467150", name: "Bridgeport, CT",       lat: 41.173, lon: -73.181 },
+            { id: "8516945", name: "Kings Point, NY",      lat: 40.810,  lon: -73.765  },
+            { id: "8518750", name: "The Battery, NYC",     lat: 40.700,  lon: -74.014  },
+            { id: "8531680", name: "Sandy Hook, NJ",       lat: 40.467,  lon: -74.009  },
+            { id: "8534720", name: "Atlantic City, NJ",    lat: 39.355,  lon: -74.418  },
+            // Mid-Atlantic / Southeast
+            { id: "8557380", name: "Lewes, DE",            lat: 38.782,  lon: -75.120  },
+            { id: "8570283", name: "Ocean City, MD",       lat: 38.328,  lon: -75.091  },
+            { id: "8638610", name: "Sewells Point, VA",    lat: 36.946,  lon: -76.330  },
+            { id: "8661070", name: "Myrtle Beach, SC",     lat: 33.655,  lon: -78.905  },
+            { id: "8665530", name: "Charleston, SC",       lat: 32.781,  lon: -79.925  },
+            // Florida
+            { id: "8723214", name: "Virginia Key, Miami",  lat: 25.731,  lon: -80.162  },
+            { id: "8724580", name: "Key West, FL",         lat: 24.555,  lon: -81.808  },
+            { id: "8726520", name: "St. Petersburg, FL",   lat: 27.760,  lon: -82.627  },
+            { id: "8727520", name: "Cedar Key, FL",        lat: 29.135,  lon: -83.031  },
+            { id: "8729840", name: "Pensacola, FL",        lat: 30.404,  lon: -87.211  },
+            // Gulf Coast
+            { id: "8735180", name: "Dauphin Island, AL",   lat: 30.250,  lon: -88.075  },
+            { id: "8761724", name: "Grand Isle, LA",       lat: 29.263,  lon: -89.956  },
+            { id: "8771450", name: "Galveston, TX",        lat: 29.310,  lon: -94.793  },
+            { id: "8775870", name: "Corpus Christi, TX",   lat: 27.580,  lon: -97.216  },
+            // West Coast CA
+            { id: "9410170", name: "San Diego, CA",        lat: 32.714,  lon: -117.175 },
+            { id: "9410230", name: "La Jolla, CA",         lat: 32.866,  lon: -117.254 },
+            { id: "9410660", name: "Los Angeles, CA",      lat: 33.720,  lon: -118.272 },
+            { id: "9413450", name: "Monterey, CA",         lat: 36.604,  lon: -121.892 },
+            { id: "9414290", name: "San Francisco, CA",    lat: 37.806,  lon: -122.465 },
+            { id: "9418767", name: "Humboldt Bay, CA",     lat: 40.767,  lon: -124.217 },
+            // Pacific NW
+            { id: "9439040", name: "Astoria, OR",          lat: 46.207,  lon: -123.767 },
+            { id: "9447130", name: "Seattle, WA",          lat: 47.601,  lon: -122.339 },
+            { id: "9443090", name: "Neah Bay, WA",         lat: 48.370,  lon: -124.602 }
+        ];
 
-    // --- GULF COAST ---
-    { id: "8725110", name: "Naples, FL", lat: 26.131, lon: -81.807, zone: "America/New_York" },
-    { id: "8726520", name: "St. Petersburg, FL", lat: 27.760, lon: -82.627, zone: "America/New_York" },
-    { id: "8727520", name: "Cedar Key, FL", lat: 29.135, lon: -83.031, zone: "America/New_York" },
-    { id: "8729108", name: "Panama City, FL", lat: 30.151, lon: -85.666, zone: "America/Chicago" },
-    { id: "8729840", name: "Pensacola, FL", lat: 30.404, lon: -87.211, zone: "America/Chicago" },
-    { id: "8735180", name: "Dauphin Island, AL", lat: 30.250, lon: -88.075, zone: "America/Chicago" },
-    { id: "8761724", name: "Grand Isle, LA", lat: 29.263, lon: -89.956, zone: "America/Chicago" },
-    { id: "8771450", name: "Galveston, TX", lat: 29.310, lon: -94.793, zone: "America/Chicago" },
-    { id: "8775870", name: "Corpus Christi, TX", lat: 27.580, lon: -97.216, zone: "America/Chicago" },
-    { id: "8779770", name: "South Padre Island, TX", lat: 26.069, lon: -97.155, zone: "America/Chicago" },
-
-    // --- WEST COAST ---
-    { id: "9410170", name: "San Diego, CA", lat: 32.714, lon: -117.175, zone: "America/Los_Angeles" },
-    { id: "9410230", name: "La Jolla, CA", lat: 32.866, lon: -117.254, zone: "America/Los_Angeles" },
-    { id: "9410580", name: "Newport Beach, CA", lat: 33.603, lon: -117.883, zone: "America/Los_Angeles" },
-    { id: "9410660", name: "Los Angeles, CA", lat: 33.720, lon: -118.272, zone: "America/Los_Angeles" },
-    { id: "9411340", name: "Santa Barbara, CA", lat: 34.404, lon: -119.692, zone: "America/Los_Angeles" },
-    { id: "9412110", name: "Port San Luis, CA", lat: 35.176, lon: -120.760, zone: "America/Los_Angeles" },
-    { id: "9413450", name: "Monterey, CA", lat: 36.604, lon: -121.892, zone: "America/Los_Angeles" },
-    { id: "9414290", name: "San Francisco, CA", lat: 37.806, lon: -122.465, zone: "America/Los_Angeles" },
-    { id: "9415020", name: "Point Reyes, CA", lat: 37.995, lon: -122.973, zone: "America/Los_Angeles" },
-    { id: "9416841", name: "Arena Cove, CA", lat: 38.914, lon: -123.708, zone: "America/Los_Angeles" },
-    { id: "9418767", name: "Humboldt Bay, CA", lat: 40.767, lon: -124.217, zone: "America/Los_Angeles" },
-    { id: "9419750", name: "Crescent City, CA", lat: 41.745, lon: -124.183, zone: "America/Los_Angeles" },
-
-    // --- PACIFIC NORTHWEST ---
-    { id: "9431647", name: "Port Orford, OR", lat: 42.737, lon: -124.498, zone: "America/Los_Angeles" },
-    { id: "9435380", name: "South Beach, OR", lat: 44.626, lon: -124.043, zone: "America/Los_Angeles" },
-    { id: "9439040", name: "Astoria, OR", lat: 46.207, lon: -123.767, zone: "America/Los_Angeles" },
-    { id: "9440910", name: "Toke Point, WA", lat: 46.705, lon: -123.965, zone: "America/Los_Angeles" },
-    { id: "9443090", name: "Neah Bay, WA", lat: 48.370, lon: -124.602, zone: "America/Los_Angeles" },
-    { id: "9447130", name: "Seattle, WA", lat: 47.601, lon: -122.339, zone: "America/Los_Angeles" }
-];
-const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
-
-        // --- 2. HELPERS ---
+        // --- HELPERS ---
         window.setStatus = (msg) => document.getElementById('statusMsg').innerText = msg;
 
-        // --- 3. ACTIONS ---
-        window.useMyLocation = function() {
-            if (!navigator.geolocation) { 
-                window.setStatus("GPS Not Supported"); return; 
+        function calcDist(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) ** 2 +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        // --- WATER TEMP FETCH (hybrid: try own station first, fallback to nearest known-good) ---
+        async function fetchWaterTemp(station) {
+            const base = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?date=latest&product=water_temperature&units=english&time_zone=lst_ldt&format=json`;
+
+            // 1. Try the tide station's own sensor first
+            try {
+                const res = await fetch(`${base}&station=${station.id}`);
+                const data = await res.json();
+                if (data.data && data.data[0] && data.data[0].v) {
+                    return {
+                        temp: parseFloat(data.data[0].v).toFixed(1),
+                        source: station.name
+                    };
+                }
+            } catch(e) {}
+
+            // 2. Fallback: find nearest confirmed temp station
+            const sorted = TEMP_STATIONS
+                .filter(s => s.id !== station.id)
+                .map(s => ({ ...s, dist: calcDist(station.lat, station.lon, s.lat, s.lon) }))
+                .sort((a, b) => a.dist - b.dist);
+
+            for (const ts of sorted.slice(0, 5)) {
+                try {
+                    const res = await fetch(`${base}&station=${ts.id}`);
+                    const data = await res.json();
+                    if (data.data && data.data[0] && data.data[0].v) {
+                        return {
+                            temp: parseFloat(data.data[0].v).toFixed(1),
+                            source: ts.name
+                        };
+                    }
+                } catch(e) {}
             }
+
+            return null;
+        }
+
+        // --- CHART BUILDER ---
+        const chartInstances = {};
+
+        function buildChart(canvasId, predictions, stationTimeInt, noaaToInt) {
+            if (chartInstances[canvasId]) {
+                chartInstances[canvasId].destroy();
+            }
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            // Use every other prediction point for a cleaner curve (hourly data)
+                const nowRawIdx = predictions.reduce((best, p, i) => {
+                return Math.abs(noaaToInt(p.t) - stationTimeInt) < Math.abs(noaaToInt(predictions[best].t) - stationTimeInt) ? i : best;
+                }, 0);
+                const startIdx = Math.max(0, nowRawIdx - 48);
+                const pts = predictions.slice(startIdx, startIdx + 120).filter((_, i) => i % 3 === 0);
+                const labels = pts.map(p => {
+                const t = p.t.split(' ')[1];
+                const h = parseInt(t.split(':')[0]);
+                return h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h-12}p`;
+            });
+            const values = pts.map(p => parseFloat(p.v));
+
+            // Find index closest to now
+            let nowIdx = 0;
+            let minDiff = Infinity;
+            pts.forEach((p, i) => {
+                const diff = Math.abs(stationTimeInt - noaaToInt(p.t));
+                if (diff < minDiff) { minDiff = diff; nowIdx = i; }
+            });
+
+            const pointColors = values.map((_, i) => i === nowIdx ? '#007AFF' : 'transparent');
+            const pointRadius = values.map((_, i) => i === nowIdx ? 5 : 0);
+            const pointBorder = values.map((_, i) => i === nowIdx ? '#fff' : 'transparent');
+            const pointBorderW = values.map((_, i) => i === nowIdx ? 2 : 0);
+
+            chartInstances[canvasId] = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: values,
+                        borderColor: '#007AFF',
+                        borderWidth: 2,
+                        tension: 0.5,
+                        fill: true,
+                        backgroundColor: 'rgba(0,122,255,0.08)',
+                        pointBackgroundColor: pointColors,
+                        pointBorderColor: pointBorder,
+                        pointBorderWidth: pointBorderW,
+                        pointRadius: pointRadius,
+                        pointHoverRadius: pointRadius,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 7,
+                                color: '#aaa',
+                                font: { size: 10 },
+                                autoSkip: true,
+                                maxRotation: 0
+                            },
+                            grid: { display: false },
+                            border: { display: false }
+                        },
+                        y: {
+                            ticks: { color: '#aaa', font: { size: 10 }, maxTicksLimit: 4 },
+                            grid: { color: 'rgba(0,0,0,0.04)' },
+                            border: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- LOCATION ---
+        window.useMyLocation = function() {
+            if (!navigator.geolocation) { window.setStatus("GPS Not Supported"); return; }
             window.setStatus("📡 Locating...");
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    window.setStatus("✅ Found. Calculating...");
+                    window.setStatus("✅ Found. Loading...");
                     findNearest(pos.coords.latitude, pos.coords.longitude);
                 },
-                (err) => { 
-                    console.error(err);
-                    window.setStatus("🚫 Location Access Denied"); 
-                }
+                () => window.setStatus("🚫 Location Access Denied")
             );
         };
 
         function findNearest(lat, lon) {
-            let closest = null;
-            let minDist = Infinity;
+            let closest = null, minDist = Infinity;
             STATION_DB.forEach(st => {
-                const R = 6371; 
-                const dLat = (st.lat - lat) * Math.PI / 180;
-                const dLon = (st.lon - lon) * Math.PI / 180;
-                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                          Math.cos(lat * Math.PI / 180) * Math.cos(st.lat * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                const dist = R * c;
+                const dist = calcDist(lat, lon, st.lat, st.lon);
                 if (dist < minDist) { minDist = dist; closest = st; }
             });
-
             if (closest) {
                 window.setStatus(`📍 Nearest: ${closest.name}`);
                 renderApp(closest);
@@ -169,36 +337,41 @@ const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
             }
         }
 
-        // --- 4. DATA FETCH ---
+        // --- DATA FETCH ---
         async function fetchStationData(station) {
             try {
                 const cb = Date.now();
                 const d = new Date(); d.setDate(d.getDate() - 1);
                 const beginDate = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
                 const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
-                
-                const [schedRes, curRes] = await Promise.all([fetch(urlBase + "&interval=hilo"), fetch(urlBase)]);
-                const schedData = await schedRes.json();
-                const curData = await curRes.json();
 
-                let currentLevel = "---";
-                let trend = "---";
-                
+                const [schedRes, curRes, tempResult] = await Promise.all([
+                    fetch(urlBase + "&interval=hilo"),
+                    fetch(urlBase),
+                    fetchWaterTemp(station)
+                ]);
+
+                const schedData = await schedRes.json();
+                const curData   = await curRes.json();
+
+                let currentLevel = "---", trend = "---";
+
                 const now = new Date();
-                const timeString = now.toLocaleString("en-US", {timeZone: station.zone, hour12: false}); 
+                const timeString = now.toLocaleString("en-US", { timeZone: station.zone, hour12: false });
                 const tempDate = new Date(timeString);
-                const stationTimeInt = parseInt(`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(tempDate.getHours()).padStart(2,'0')}${String(tempDate.getMinutes()).padStart(2,'0')}`);
+                const stationTimeInt = parseInt(
+                    `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${String(tempDate.getHours()).padStart(2,'0')}${String(tempDate.getMinutes()).padStart(2,'0')}`
+                );
                 const noaaToInt = (t) => parseInt(t.replace(/[- :]/g, ''));
 
                 if (curData.predictions) {
-                    const closest = curData.predictions.reduce((prev, curr) => {
-                        return (Math.abs(stationTimeInt - noaaToInt(curr.t)) < Math.abs(stationTimeInt - noaaToInt(prev.t))) ? curr : prev;
-                    });
+                    const closest = curData.predictions.reduce((prev, curr) =>
+                        Math.abs(stationTimeInt - noaaToInt(curr.t)) < Math.abs(stationTimeInt - noaaToInt(prev.t)) ? curr : prev
+                    );
                     currentLevel = parseFloat(closest.v).toFixed(1);
                     const idx = curData.predictions.indexOf(closest);
                     if (idx < curData.predictions.length - 1) {
-                         const nextVal = parseFloat(curData.predictions[idx+1].v);
-                         trend = nextVal > parseFloat(currentLevel) ? "RISING" : "FALLING";
+                        trend = parseFloat(curData.predictions[idx+1].v) > parseFloat(currentLevel) ? "RISING" : "FALLING";
                     }
                 }
 
@@ -209,71 +382,112 @@ const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
                         .slice(0, 4)
                         .map(p => ({ time: p.t, val: p.v, isHigh: p.type === 'H' }));
                 }
-                return { ...station, current: currentLevel, trend, timeline };
-            } catch (err) { return { ...station, error: true }; }
+
+                return {
+                    ...station,
+                    current: currentLevel,
+                    trend,
+                    timeline,
+                    waterTemp: tempResult,
+                    allPredictions: curData.predictions || [],
+                    stationTimeInt,
+                    noaaToInt
+                };
+            } catch(err) {
+                return { ...station, error: true };
+            }
         }
 
+        // --- RENDER ---
         async function renderApp(foundStation = null) {
             const container = document.getElementById('app');
-            if (foundStation || container.innerText.includes('Loading')) container.innerHTML = '<div style="padding:20px;text-align:center;">Updating Tides...</div>';
+            if (foundStation || container.innerText.includes('Loading')) {
+                container.innerHTML = '<div style="padding:20px;text-align:center;color:#888;">Updating Tides...</div>';
+            }
 
             let list = [];
             if (foundStation) list.push({ ...foundStation, isFound: true });
             DEFAULT_IDS.forEach(id => {
                 const s = STATION_DB.find(x => x.id === id);
-                if (s) list.push(s);
+                if (s && (!foundStation || s.id !== foundStation.id)) list.push(s);
             });
 
             const results = await Promise.all(list.map(fetchStationData));
             let html = '';
 
-            results.forEach(st => {
-                if (st.error) return; 
-                
-                let rows = st.timeline.map(e => {
-                    const tParts = e.time.split(' ')[1].split(':');
-                    let h = parseInt(tParts[0]);
-                    const suffix = h >= 12 ? 'PM' : 'AM';
-                    h = h % 12 || 12;
-                    return `
-                    <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
-                        <span style="font-weight:bold; color:${e.isHigh?'#007AFF':'#555'}">${e.isHigh?'HIGH':'LOW'}</span>
-                        <span>${parseFloat(e.val).toFixed(1)} ft <span style="color:#888; font-size:0.8em;">${h}:${tParts[1]} ${suffix}</span></span>
-                    </div>`;
-                }).join('');
+            results.forEach((st, idx) => {
+                if (st.error) return;
 
                 const isRising = st.trend === "RISING";
-                // Special styling for Found Station
-                const cardStyle = st.isFound ? "border: 2px solid #007AFF; background:#f0f9ff;" : "background:white;";
+                const cardStyle = st.isFound
+                    ? "border: 2px solid #007AFF; background:#f0f9ff;"
+                    : "background:white;";
                 const titleColor = st.isFound ? "#0056b3" : "#111";
-                const label = st.isFound ? "📍 NEAREST STATION" : `LIVE (${st.zone.split('/')[1].replace('_',' ')})`;
+                const label = st.isFound
+                    ? "📍 NEAREST STATION"
+                    : `LIVE (${st.zone.split('/')[1].replace('_', ' ')})`;
+
+                const chartId = `chart-${st.id}`;
+
+                // Temp strip
+                let tempHTML = '';
+                if (st.waterTemp) {
+                    const sourceLabel = st.waterTemp.source;
+                    tempHTML = `
+                    <div style="display:flex; align-items:center; gap:10px; background:#f0f9ff; border-radius:10px; padding:10px 14px; margin-bottom:12px;">
+                        <div style="font-size:24px; font-weight:900; color:#007AFF; line-height:1;">${st.waterTemp.temp}°<span style="font-size:14px; font-weight:700;">F</span></div>
+                        <div>
+                            <div style="font-size:11px; font-weight:800; color:#007AFF; letter-spacing:0.3px;">WATER TEMP</div>
+                            <div style="font-size:10px; color:#888; margin-top:2px;">from ${sourceLabel}</div>
+                        </div>
+                    </div>`;
+                }
+
+                // Timeline rows
+                const rows = st.timeline.map((e, idx) => {
+                 const tParts = e.time.split(' ')[1].split(':');
+                 const h = tParts[0].padStart(2, '0');
+                  return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee;">
+                    <span style="font-weight:800; font-size:12px; color:${e.isHigh ? '#007AFF' : '#555'}">${idx === 0 ? 'NEXT ' : idx === 1 ? 'NEXT ' : ''}${e.isHigh ? 'HIGH TIDE' : 'LOW TIDE'}</span>                    <span><strong style="font-size:1em; color:#333;">${h}:${tParts[1]}</strong> <span style="color:#888; font-size:0.85em;">${parseFloat(e.val).toFixed(1)} ft</span></span>
+                </div>`;
+                }).join('');
 
                 html += `
-                <div style="${cardStyle} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                <div style="${cardStyle} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);" data-idx="${idx}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
                         <div>
                             <div style="font-size:18px; font-weight:800; color:${titleColor};">${st.name}</div>
-                            <div style="font-size:10px; font-weight:700; color:#999; margin-top:4px;">${label}</div>
                         </div>
-                        <div style="text-align:right;">
-                            <div style="font-size:32px; font-weight:900; color:#007AFF;">
-                                ${st.current}<span style="font-size:16px; color:#999;">ft</span> 
-                            </div>
-                            <div style="font-size:12px; font-weight:800; color:${isRising?'#10b981':'#ef4444'}; background:${isRising?'#ecfdf5':'#fef2f2'}; padding:2px 8px; border-radius:6px; display:inline-block;">
-                                ${isRising?'↑ RISING':'↓ FALLING'}
-                            </div>
+                      <div style="text-align:right;">
+                        <div style="font-size:20px; font-weight:900; color:${isRising?'#10b981':'#ef4444'}; background:${isRising?'#ecfdf5':'#fef2f2'}; padding:4px 10px; border-radius:8px; display:inline-block; margin-bottom:4px;">
+                            ${isRising?'↑ RISING':'↓ FALLING'}
                         </div>
+                        <div style="font-size:13px; color:#888; text-align:right;">now at <strong style="color:#333;">${st.current} ft</strong></div>
                     </div>
-                    <div style="margin-top:10px;">${rows}</div>
+                    </div>
+                    <div class="chart-wrap">
+                        <canvas id="${chartId}"></canvas>
+                    </div>
+                    <div style="margin-top:4px;">${rows}</div>
+                                        ${tempHTML}
+
                 </div>`;
             });
+
             container.innerHTML = html;
+
+            // Build charts after DOM is ready
+            results.forEach(st => {
+                if (st.error || !st.allPredictions.length) return;
+                buildChart(`chart-${st.id}`, st.allPredictions, st.stationTimeInt, st.noaaToInt);
+            });
         }
 
-        // --- 5. CLOCK ---
+        // --- CLOCK ---
         setInterval(() => {
             const c = document.getElementById('clock');
-            if(c) c.innerText = new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+            if (c) c.innerText = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         }, 1000);
 
         renderApp();
