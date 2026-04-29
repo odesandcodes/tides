@@ -35,23 +35,20 @@ export const prerender = true;
         }
         .chart-wrap { position: relative; height: 110px; margin: 8px 0 4px; }
 
-    /* 5-day tide table — stacked rows */
-        .five-day-tides { margin-top: 12px; }
-        .day-row {
-            display: flex; align-items: center;
-            padding: 5px 10px; border-radius: 10px;
-            background: #f8f9fb; margin-bottom: 5px;
+    /* 5-day tide table — mini cards grid */
+        .five-day-tides { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .day-col {
+            background: #f8f9fb; border-radius: 10px; padding: 8px 10px;
         }
-        .day-row.today { background: #f0f9ff; }
-        .day-row:last-child { margin-bottom: 0; }
-        .day-label { font-size: 9px; font-weight: 800; color: #007AFF; width: 56px; flex-shrink: 0; letter-spacing: 0px; text-transform: uppercase; }
-        .tide-events-row { display: flex; flex: 1; flex-wrap: nowrap; }
-        .tide-event { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1; }
-        .tide-type { font-weight: 800; font-size: 9px; width: 24px; flex-shrink: 0; }
+        .day-col.today { background: #f0f9ff; }
+        .day-label { font-size: 10px; font-weight: 800; color: #007AFF; letter-spacing: 0.3px; text-transform: uppercase; margin-bottom: 5px; }
+        .tide-event { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
+        .tide-event:last-child { margin-bottom: 0; }
+        .tide-type { font-weight: 800; font-size: 9px; width: 26px; flex-shrink: 0; }
         .tide-type.high { color: #007AFF; }
         .tide-type.low  { color: #ef4444; }
-        .tide-time { font-size: 9px; color: #333; font-weight: 700; width: 32px; flex-shrink: 1; }
-        .tide-val  { font-size: 9px; color: #aaa; width: 18px; flex-shrink: 1; }
+        .tide-time { font-size: 11px; color: #333; font-weight: 700; }
+        .tide-val  { font-size: 10px; color: #aaa; }
 
     </style>
 </head>
@@ -459,9 +456,9 @@ export const prerender = true;
                     const isToday = dayLabel === 'Today';
                     const eventsHTML = events.map(e => {
                         const isHigh = e.type === 'H';
-                        return `<div class="tide-event"><span class="tide-type ${isHigh ? 'high' : 'low'}">${isHigh ? 'HIGH' : 'LOW'}</span> <span class="tide-time">${formatNoaaTime(e.t)}</span> <span class="tide-val">${parseFloat(e.v).toFixed(1)}'</span></div>`;
+                        return `<div class="tide-event"><span class="tide-type ${isHigh ? 'high' : 'low'}">${isHigh ? 'HIGH' : 'LOW'}</span><span class="tide-time">${formatNoaaTime(e.t)}</span><span class="tide-val">${parseFloat(e.v).toFixed(1)}'</span></div>`;
                     }).join('');
-                    fiveDayHTML += `<div class="day-row${isToday ? ' today' : ''}"><div class="day-label">${dayLabel}</div><div class="tide-events-row">${eventsHTML}</div></div>`;
+                    fiveDayHTML += `<div class="day-col${isToday ? ' today' : ''}"><div class="day-label">${dayLabel}</div>${eventsHTML}</div>`;
                 });
                 if (dayKeys.length === 0) {
                     fiveDayHTML += `<div style="font-size:12px;color:#aaa;padding:8px 0;">No forecast data available.</div>`;
