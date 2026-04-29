@@ -7,7 +7,7 @@ export const prerender = true;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>TideTrack</title>
-    <style>
+    <style is:global>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             background: #f0f2f5; margin: 0; padding: 20px; 
@@ -33,18 +33,26 @@ export const prerender = true;
             font-size: 10px; color: #999; margin-top: 25px; 
             line-height: 1.6; max-width: 320px; text-align: center;
         }
-        .temp-strip {
-            display: flex; align-items: center; gap: 10px;
-            background: #f0f9ff; border-radius: 10px;
-            padding: 10px 14px; margin-bottom: 12px;
-        }
-        .temp-value {
-            font-size: 24px; font-weight: 900; color: #007AFF; line-height: 1;
-        }
-        .temp-value span { font-size: 14px; font-weight: 700; }
-        .temp-label { font-size: 11px; font-weight: 800; color: #007AFF; letter-spacing: 0.3px; }
-        .temp-source { font-size: 10px; color: #888; margin-top: 2px; }
         .chart-wrap { position: relative; height: 110px; margin: 8px 0 4px; }
+
+    /* 5-day tide table — stacked rows */
+        .five-day-tides { margin-top: 12px; }
+        .day-row {
+            display: flex; align-items: center;
+            padding: 5px 10px; border-radius: 10px;
+            background: #f8f9fb; margin-bottom: 5px;
+        }
+        .day-row.today { background: #f0f9ff; }
+        .day-row:last-child { margin-bottom: 0; }
+        .day-label { font-size: 9px; font-weight: 800; color: #007AFF; width: 56px; flex-shrink: 0; letter-spacing: 0px; text-transform: uppercase; }
+        .tide-events-row { display: flex; flex: 1; flex-wrap: nowrap; }
+        .tide-event { display: flex; align-items: center; gap: 2px; min-width: 0; flex: 1; }
+        .tide-type { font-weight: 800; font-size: 9px; width: 24px; flex-shrink: 0; }
+        .tide-type.high { color: #007AFF; }
+        .tide-type.low  { color: #ef4444; }
+        .tide-time { font-size: 9px; color: #333; font-weight: 700; width: 32px; flex-shrink: 1; }
+        .tide-val  { font-size: 9px; color: #aaa; width: 18px; flex-shrink: 1; }
+
     </style>
 </head>
 <body>
@@ -130,47 +138,38 @@ export const prerender = true;
 
         const DEFAULT_IDS = ["8517201", "8661070", "8516614", "9410580"];
 
-        // --- CONFIRMED WATER TEMP STATIONS (hardcoded fallback list) ---
-        // These are confirmed NOAA CO-OPS physical oceanography stations
+        // --- CONFIRMED WATER TEMP STATIONS ---
         const TEMP_STATIONS = [
-            // Northeast
             { id: "8443970", name: "Boston, MA",           lat: 42.3539, lon: -71.0503 },
             { id: "8447930", name: "Woods Hole, MA",       lat: 41.524,  lon: -70.671  },
             { id: "8452660", name: "Newport, RI",          lat: 41.504,  lon: -71.326  },
-            // NYC / Long Island - North Shore, South Shore, Harbor
             { id: "8510560", name: "Montauk, NY",          lat: 41.048,  lon: -71.960  },
             { id: "8516945", name: "Kings Point, NY",      lat: 40.810,  lon: -73.765  },
-            { id: "8465705", name: "New Haven, CT",        lat: 41.283, lon: -72.908 },
-            { id: "8467150", name: "Bridgeport, CT",       lat: 41.173, lon: -73.181 },
-            { id: "8516945", name: "Kings Point, NY",      lat: 40.810,  lon: -73.765  },
+            { id: "8465705", name: "New Haven, CT",        lat: 41.283,  lon: -72.908  },
+            { id: "8467150", name: "Bridgeport, CT",       lat: 41.173,  lon: -73.181  },
             { id: "8518750", name: "The Battery, NYC",     lat: 40.700,  lon: -74.014  },
             { id: "8531680", name: "Sandy Hook, NJ",       lat: 40.467,  lon: -74.009  },
             { id: "8534720", name: "Atlantic City, NJ",    lat: 39.355,  lon: -74.418  },
-            // Mid-Atlantic / Southeast
             { id: "8557380", name: "Lewes, DE",            lat: 38.782,  lon: -75.120  },
             { id: "8570283", name: "Ocean City, MD",       lat: 38.328,  lon: -75.091  },
             { id: "8638610", name: "Sewells Point, VA",    lat: 36.946,  lon: -76.330  },
             { id: "8661070", name: "Myrtle Beach, SC",     lat: 33.655,  lon: -78.905  },
             { id: "8665530", name: "Charleston, SC",       lat: 32.781,  lon: -79.925  },
-            // Florida
             { id: "8723214", name: "Virginia Key, Miami",  lat: 25.731,  lon: -80.162  },
             { id: "8724580", name: "Key West, FL",         lat: 24.555,  lon: -81.808  },
             { id: "8726520", name: "St. Petersburg, FL",   lat: 27.760,  lon: -82.627  },
             { id: "8727520", name: "Cedar Key, FL",        lat: 29.135,  lon: -83.031  },
             { id: "8729840", name: "Pensacola, FL",        lat: 30.404,  lon: -87.211  },
-            // Gulf Coast
             { id: "8735180", name: "Dauphin Island, AL",   lat: 30.250,  lon: -88.075  },
             { id: "8761724", name: "Grand Isle, LA",       lat: 29.263,  lon: -89.956  },
             { id: "8771450", name: "Galveston, TX",        lat: 29.310,  lon: -94.793  },
             { id: "8775870", name: "Corpus Christi, TX",   lat: 27.580,  lon: -97.216  },
-            // West Coast CA
             { id: "9410170", name: "San Diego, CA",        lat: 32.714,  lon: -117.175 },
             { id: "9410230", name: "La Jolla, CA",         lat: 32.866,  lon: -117.254 },
             { id: "9410660", name: "Los Angeles, CA",      lat: 33.720,  lon: -118.272 },
             { id: "9413450", name: "Monterey, CA",         lat: 36.604,  lon: -121.892 },
             { id: "9414290", name: "San Francisco, CA",    lat: 37.806,  lon: -122.465 },
             { id: "9418767", name: "Humboldt Bay, CA",     lat: 40.767,  lon: -124.217 },
-            // Pacific NW
             { id: "9439040", name: "Astoria, OR",          lat: 46.207,  lon: -123.767 },
             { id: "9447130", name: "Seattle, WA",          lat: 47.601,  lon: -122.339 },
             { id: "9443090", name: "Neah Bay, WA",         lat: 48.370,  lon: -124.602 }
@@ -188,23 +187,45 @@ export const prerender = true;
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
-        // --- WATER TEMP FETCH (hybrid: try own station first, fallback to nearest known-good) ---
+        // Format a NOAA datetime string "YYYY-MM-DD HH:MM" using station's timezone
+        function formatNoaaTime(t) {
+            const parts = t.split(' ');
+            const timePart = parts[1];
+            const [hStr, mStr] = timePart.split(':');
+            const h = parseInt(hStr);
+            const ampm = h < 12 ? 'a' : 'p';
+            const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+            return `${h12}:${mStr}${ampm}`;
+        }
+
+        // Get day label from NOAA datetime string relative to today's local date in station zone
+        function getDayLabel(t, zone) {
+            const dateStr = t.split(' ')[0]; // "YYYY-MM-DD"
+            const [y, m, d] = dateStr.split('-').map(Number);
+            // Get today's date in station's timezone
+            const nowInZone = new Date(new Date().toLocaleString("en-US", { timeZone: zone }));
+            const todayY = nowInZone.getFullYear();
+            const todayM = nowInZone.getMonth() + 1;
+            const todayD = nowInZone.getDate();
+
+            if (y === todayY && m === todayM && d === todayD) return 'Today';
+            // Build a date object (local noon) to get day name
+            const dt = new Date(y, m - 1, d, 12);
+            const tomorrowDt = new Date(todayY, todayM - 1, todayD + 1);
+            return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+        }
+
+        // --- WATER TEMP: latest reading ---
         async function fetchWaterTemp(station) {
             const base = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?date=latest&product=water_temperature&units=english&time_zone=lst_ldt&format=json`;
-
-            // 1. Try the tide station's own sensor first
             try {
                 const res = await fetch(`${base}&station=${station.id}`);
                 const data = await res.json();
                 if (data.data && data.data[0] && data.data[0].v) {
-                    return {
-                        temp: parseFloat(data.data[0].v).toFixed(1),
-                        source: station.name
-                    };
+                    return { temp: parseFloat(data.data[0].v).toFixed(1), source: station.name };
                 }
             } catch(e) {}
 
-            // 2. Fallback: find nearest confirmed temp station
             const sorted = TEMP_STATIONS
                 .filter(s => s.id !== station.id)
                 .map(s => ({ ...s, dist: calcDist(station.lat, station.lon, s.lat, s.lon) }))
@@ -215,20 +236,15 @@ export const prerender = true;
                     const res = await fetch(`${base}&station=${ts.id}`);
                     const data = await res.json();
                     if (data.data && data.data[0] && data.data[0].v) {
-                        return {
-                            temp: parseFloat(data.data[0].v).toFixed(1),
-                            source: ts.name
-                        };
+                        return { temp: parseFloat(data.data[0].v).toFixed(1), source: ts.name };
                     }
                 } catch(e) {}
             }
-
             return null;
         }
 
-        // --- CHART BUILDER ---
-        const chartInstances = {};
 
+        const chartInstances = {};
         function buildChart(canvasId, predictions, stationTimeInt, noaaToInt) {
             if (chartInstances[canvasId]) {
                 chartInstances[canvasId].destroy();
@@ -236,20 +252,18 @@ export const prerender = true;
             const canvas = document.getElementById(canvasId);
             if (!canvas) return;
 
-            // Use every other prediction point for a cleaner curve (hourly data)
-                const nowRawIdx = predictions.reduce((best, p, i) => {
+            const nowRawIdx = predictions.reduce((best, p, i) => {
                 return Math.abs(noaaToInt(p.t) - stationTimeInt) < Math.abs(noaaToInt(predictions[best].t) - stationTimeInt) ? i : best;
-                }, 0);
-                const startIdx = Math.max(0, nowRawIdx - 48);
-                const pts = predictions.slice(startIdx, startIdx + 120).filter((_, i) => i % 3 === 0);
-                const labels = pts.map(p => {
+            }, 0);
+            const startIdx = Math.max(0, nowRawIdx - 48);
+            const pts = predictions.slice(startIdx, startIdx + 120).filter((_, i) => i % 3 === 0);
+            const labels = pts.map(p => {
                 const t = p.t.split(' ')[1];
                 const h = parseInt(t.split(':')[0]);
                 return h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h-12}p`;
             });
             const values = pts.map(p => parseFloat(p.v));
 
-            // Find index closest to now
             let nowIdx = 0;
             let minDiff = Infinity;
             pts.forEach((p, i) => {
@@ -257,9 +271,9 @@ export const prerender = true;
                 if (diff < minDiff) { minDiff = diff; nowIdx = i; }
             });
 
-            const pointColors = values.map((_, i) => i === nowIdx ? '#007AFF' : 'transparent');
-            const pointRadius = values.map((_, i) => i === nowIdx ? 5 : 0);
-            const pointBorder = values.map((_, i) => i === nowIdx ? '#fff' : 'transparent');
+            const pointColors  = values.map((_, i) => i === nowIdx ? '#007AFF' : 'transparent');
+            const pointRadius  = values.map((_, i) => i === nowIdx ? 5 : 0);
+            const pointBorder  = values.map((_, i) => i === nowIdx ? '#fff' : 'transparent');
             const pointBorderW = values.map((_, i) => i === nowIdx ? 2 : 0);
 
             chartInstances[canvasId] = new Chart(canvas, {
@@ -341,14 +355,15 @@ export const prerender = true;
         async function fetchStationData(station) {
             try {
                 const cb = Date.now();
+                // Fetch from 1 day ago, range 168 hours (7 days) to cover 5 future days + today
                 const d = new Date(); d.setDate(d.getDate() - 1);
                 const beginDate = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
-                const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=72&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
+                const urlBase = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?station=${station.id}&begin_date=${beginDate}&range=168&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=TideTrack&cb=${cb}`;
 
                 const [schedRes, curRes, tempResult] = await Promise.all([
                     fetch(urlBase + "&interval=hilo"),
                     fetch(urlBase),
-                    fetchWaterTemp(station)
+                    fetchWaterTemp(station),
                 ]);
 
                 const schedData = await schedRes.json();
@@ -375,19 +390,28 @@ export const prerender = true;
                     }
                 }
 
-                let timeline = [];
+                // Build 5-day grouped tide schedule (from now forward, up to 5 days)
+                let fiveDayTides = {};
                 if (schedData.predictions) {
-                    timeline = schedData.predictions
-                        .filter(p => noaaToInt(p.t) > stationTimeInt)
-                        .slice(0, 4)
-                        .map(p => ({ time: p.t, val: p.v, isHigh: p.type === 'H' }));
+                    const future = schedData.predictions.filter(p => noaaToInt(p.t) > stationTimeInt);
+                    // Group by date
+                    future.forEach(p => {
+                        const dateKey = p.t.split(' ')[0];
+                        if (!fiveDayTides[dateKey]) fiveDayTides[dateKey] = [];
+                        fiveDayTides[dateKey].push(p);
+                    });
+                    // Keep only first 5 days
+                    const dayKeys = Object.keys(fiveDayTides).sort().slice(0, 5);
+                    const filtered = {};
+                    dayKeys.forEach(k => { filtered[k] = fiveDayTides[k]; });
+                    fiveDayTides = filtered;
                 }
 
                 return {
                     ...station,
                     current: currentLevel,
                     trend,
-                    timeline,
+                    fiveDayTides,
                     waterTemp: tempResult,
                     allPredictions: curData.predictions || [],
                     stationTimeInt,
@@ -423,36 +447,40 @@ export const prerender = true;
                     ? "border: 2px solid #007AFF; background:#f0f9ff;"
                     : "background:white;";
                 const titleColor = st.isFound ? "#0056b3" : "#111";
-                const label = st.isFound
-                    ? "📍 NEAREST STATION"
-                    : `LIVE (${st.zone.split('/')[1].replace('_', ' ')})`;
 
                 const chartId = `chart-${st.id}`;
 
-                // Temp strip
-                let tempHTML = '';
+               // --- 5-day tide section ---
+                let fiveDayHTML = '<div class="five-day-tides">';
+                const dayKeys = Object.keys(st.fiveDayTides || {}).sort();
+                dayKeys.forEach((dateKey) => {
+                    const events = st.fiveDayTides[dateKey];
+                    const dayLabel = getDayLabel(`${dateKey} 00:00`, st.zone);
+                    const isToday = dayLabel === 'Today';
+                    const eventsHTML = events.map(e => {
+                        const isHigh = e.type === 'H';
+                        return `<div class="tide-event"><span class="tide-type ${isHigh ? 'high' : 'low'}">${isHigh ? 'HIGH' : 'LOW'}</span> <span class="tide-time">${formatNoaaTime(e.t)}</span> <span class="tide-val">${parseFloat(e.v).toFixed(1)}'</span></div>`;
+                    }).join('');
+                    fiveDayHTML += `<div class="day-row${isToday ? ' today' : ''}"><div class="day-label">${dayLabel}</div><div class="tide-events-row">${eventsHTML}</div></div>`;
+                });
+                if (dayKeys.length === 0) {
+                    fiveDayHTML += `<div style="font-size:12px;color:#aaa;padding:8px 0;">No forecast data available.</div>`;
+                }
+                fiveDayHTML += '</div>';
+
+                // --- Today's current water temp strip ---
+                let tempTodayHTML = '';
                 if (st.waterTemp) {
-                    const sourceLabel = st.waterTemp.source;
-                    tempHTML = `
-                    <div style="display:flex; align-items:center; gap:10px; background:#f0f9ff; border-radius:10px; padding:10px 14px; margin-bottom:12px;">
+                    tempTodayHTML = `
+                    <div style="display:flex; align-items:center; gap:10px; background:#f0f9ff; border-radius:10px; padding:10px 14px; margin-bottom:8px;">
                         <div style="font-size:24px; font-weight:900; color:#007AFF; line-height:1;">${st.waterTemp.temp}°<span style="font-size:14px; font-weight:700;">F</span></div>
                         <div>
-                            <div style="font-size:11px; font-weight:800; color:#007AFF; letter-spacing:0.3px;">WATER TEMP</div>
-                            <div style="font-size:10px; color:#888; margin-top:2px;">from ${sourceLabel}</div>
+                            <div style="font-size:11px; font-weight:800; color:#007AFF; letter-spacing:0.3px;">WATER TEMP NOW</div>
+                            <div style="font-size:10px; color:#888; margin-top:2px;">from ${st.waterTemp.source}</div>
                         </div>
                     </div>`;
                 }
 
-                // Timeline rows
-                const rows = st.timeline.map((e, idx) => {
-                 const tParts = e.time.split(' ')[1].split(':');
-                 const h = tParts[0].padStart(2, '0');
-                  return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #eee; opacity:${idx > 1 ? '0.4' : '1'}">
-                    <span style="font-weight:800; font-size:12px; color:${e.isHigh ? '#007AFF' : '#555'}">${idx < 2 ? 'NEXT ' : ''}${e.isHigh ? 'HIGH TIDE' : 'LOW TIDE'}</span>
-                    <span style="font-variant-numeric:tabular-nums;"><strong style="color:#333;">${h}:${tParts[1]}</strong> <span style="color:#aaa; font-size:0.85em; display:inline-block; width:45px; text-align:right;">${parseFloat(e.val).toFixed(1)} ft</span></span>
-                </div>`;
-                }).join('');
 
                 html += `
                 <div style="${cardStyle} padding:20px; border-radius:16px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.05);" data-idx="${idx}">
@@ -460,19 +488,18 @@ export const prerender = true;
                         <div>
                             <div style="font-size:18px; font-weight:800; color:${titleColor};">${st.name}</div>
                         </div>
-                      <div style="text-align:right;">
-                        <div style="font-size:20px; font-weight:900; color:${isRising?'#10b981':'#ef4444'}; background:${isRising?'#ecfdf5':'#fef2f2'}; padding:4px 10px; border-radius:8px; display:inline-block; margin-bottom:4px;">
-                            ${isRising?'↑ RISING':'↓ FALLING'}
+                        <div style="text-align:right;">
+                            <div style="font-size:20px; font-weight:900; color:${isRising?'#10b981':'#ef4444'}; background:${isRising?'#ecfdf5':'#fef2f2'}; padding:4px 10px; border-radius:8px; display:inline-block; margin-bottom:4px;">
+                                ${isRising?'↑ RISING':'↓ FALLING'}
+                            </div>
+                            <div style="font-size:13px; color:#888; text-align:right;">now at <strong style="color:#333;">${st.current} ft</strong></div>
                         </div>
-                        <div style="font-size:13px; color:#888; text-align:right;">now at <strong style="color:#333;">${st.current} ft</strong></div>
-                    </div>
                     </div>
                     <div class="chart-wrap">
                         <canvas id="${chartId}"></canvas>
                     </div>
-                    <div style="margin-top:4px;">${rows}</div>
-                                        ${tempHTML}
-
+                    ${fiveDayHTML}
+                    <div style="margin-top:14px;">${tempTodayHTML}</div>
                 </div>`;
             });
 
