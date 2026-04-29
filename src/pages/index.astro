@@ -398,7 +398,7 @@ export const prerender = true;
                         fiveDayTides[dateKey].push(p);
                     });
                     // Keep only first 5 days
-                    const dayKeys = Object.keys(fiveDayTides).sort().slice(0, 5);
+                    const dayKeys = Object.keys(fiveDayTides).sort().slice(0, 6);
                     const filtered = {};
                     dayKeys.forEach(k => { filtered[k] = fiveDayTides[k]; });
                     fiveDayTides = filtered;
